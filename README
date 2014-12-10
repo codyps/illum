@@ -1,0 +1,15 @@
+
+ - reads keyboard for backlight relevent keys
+ - detects activity
+ - obeys inhibits (time limited and lifetime limited)
+ - [optionally] displays the current backlight status via an overlay
+   - showing other status (caps lock, num lock) may also be useful on come
+     machines
+ - dim bl durring inactivity
+
+
+
+Inspiration:
+
+ - brightd: dims on inactivity
+ - 
