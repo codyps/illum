@@ -1,0 +1,71 @@
+#! /bin/sh
+
+: ${CROSS_COMPILER:=}
+: ${CC:=${CROSS_COMPILER}cc}
+
+: ${WARN_FLAGS_C:="-Wstrict-prototypes -Wmissing-prototypes -Wold-style-definition -Wmissing-declarations -Wbad-function-cast"}
+: ${WARN_FLAGS:="-Wall -Wundef -Wshadow -Wcast-align -Wwrite-strings ${WARN_FLAGS_C}"}
+: ${COMMON_FLAGS:="-fsanitize=address -flto -Os -ggdb3"}
+: ${CFLAGS:="${COMMON_FLAGS}"}
+: ${CFG_NEXT_INIT:=/sbin/init}
+: ${GIT_VER:=$(git describe --dirty=+ --always --abbrev=0)}
+CFLAGS="${WARN_FLAGS} -std=c99 -D_GNU_SOURCE -DCFG_NEXT_INIT=${CFG_NEXT_INIT} -DCFG_GIT_VERSION=${GIT_VER} ${CFLAGS}"
+: ${LDFLAGS:="${COMMON_FLAGS}"}
+
+exec >build.ninja
+
+cat <<EOF
+cc = $CC
+objcopy = $OBJCOPY
+cflags = $CFLAGS
+ldflags = $LDFLAGS
+
+rule cc
+  command = \$cc \$cflags -MMD -MF \$out.d  -c \$in -o \$out
+  depfile = \$out.d
+
+rule ccld
+  command = \$cc \$ldflags -o \$out \$in
+
+rule ninja_gen
+  command = $0
+  generator = yes
+build build.ninja : ninja_gen $0
+EOF
+
+to_out () {
+  for i in "$@"; do
+    printf "%s " ".build-$out/$i"
+  done
+}
+
+to_obj () {
+  for i in "$@"; do
+    printf "%s " ".build-$out/$i.o"
+  done
+}
+
+_ev () {
+	eval echo "\${$1}"
+}
+
+bin () {
+	out="$1"
+	shift
+	out_var="${out/./_}"
+
+	for s in "$@"; do
+		echo build $(to_obj "$s"): cc $s
+	done
+
+	cat <<EOF
+build $out : ccld $(to_obj "$@")
+EOF
+	BINS="$BINS $out"
+}
+BINS=""
+
+bin illum-d   main-daemon.c
+bin illum-ctl main-ctl.c
+
+echo default ${BINS}

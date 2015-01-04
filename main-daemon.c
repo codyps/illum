@@ -54,6 +54,7 @@ struct dim_method_conf {
 	const char *path;
 };
 
+static
 void usage_(const char *pn)
 {
 	fprintf(stderr,
