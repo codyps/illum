@@ -1,3 +1,31 @@
+== illum ==
+
+Illum is a screen brightness manager for linux. It adjusts brightness based on
+keypresses, "idle"-ness, and programmatic input.
+
+
+=== build ===
+
+   ./build
+
+OR
+
+   ./configure
+   ninja
+
+Note that `ninja` does not recognize env vars like CC and CFLAGS, but
+`./configure` does. `./build` is just a convenience wrapper to configure and
+then call ninja.
+
+
+=== Use ===
+
+
+
+
+
+
+==== Notes ====
 
  - reads keyboard for backlight relevent keys
  - detects activity
