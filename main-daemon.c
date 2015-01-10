@@ -77,7 +77,7 @@ int main(int argc, char **argv)
 	struct dim_conf dc = DIM_CONF_DEFAULT;
 	struct dim_method_conf dmc = { NULL };
 
-	while ((c = getopt(argc, argv, "hbltfF"))) {
+	while ((c = getopt(argc, argv, "hbltfF")) != -1) {
 		switch(c) {
 		case 'h':
 			usage();
