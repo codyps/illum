@@ -1,8 +1,7 @@
 == illum ==
 
-Illum is a screen brightness manager for linux. It adjusts brightness based on
-keypresses, "idle"-ness, and programmatic input.
-
+Illum is a backlight manager for linux. It changes the screen backlight level
+based on keypresses (brightness up and brightness down).
 
 === build ===
 
@@ -17,23 +16,30 @@ Note that `ninja` does not recognize env vars like CC and CFLAGS, but
 `./configure` does. `./build` is just a convenience wrapper to configure and
 then call ninja.
 
-
 === Use ===
 
+Run `./illum-d -b /sys/class/backlight/intel_backlight`.
 
+The default event source is '/dev/input/event0', you can override it with the
+'-e' flag.
 
+=== Notes ===
 
+ - The user running illum-d needs the appropriate permisions to read from the
+   input device (on Arch a member of group 'input' works) and to write to the
+   backlight control
 
+==== TODO ====
 
-==== Notes ====
-
- - reads keyboard for backlight relevent keys
- - detects activity
- - obeys inhibits (time limited and lifetime limited)
- - [optionally] displays the current backlight status via an overlay
-   - showing other status (caps lock, num lock) may also be useful on come
-     machines
- - dim bl durring inactivity
+ - dimming based on "activity"
+    - detects activity
+    - obeys inhibits (time limited and lifetime limited)
+    - [optionally] displays the current backlight status via an overlay
+      - showing other status (caps lock, num lock) may also be useful on come
+        machines
+    - dim bl durring inactivity
+ - support multiple event devices
+ - support hotpluged event devices
 
 Inspiration:
 

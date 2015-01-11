@@ -148,8 +148,7 @@ int main(int argc, char **argv)
 			break;
 		case '?':
 		default:
-			printf("got %c for %s %c\n", c, optarg, optopt);
-			usage();
+			fprintf(stderr, "got %c for %s %c\n", c, optarg, optopt);
 			e++;
 		}
 	}
