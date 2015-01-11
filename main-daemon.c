@@ -7,6 +7,14 @@
 /* posix */
 #include <unistd.h> /* getopt(), etc */
 
+/* open() */
+#include <sys/stat.h>
+#include <fcntl.h>
+
+/* libevdev */
+#include <libevdev/libevdev.h>
+
+
 /* interfaces:
  *  cfg:
  *   - command line for daemon startup (cfg)
@@ -25,77 +33,118 @@
  *     - probably has standard apis for inhibit & activity
  */
 
-#define MSEC_FROM_SEC(sec) ((sec) * 1000)
-
 /*
- * Settings that control what the dimming should look like to the user
- */
-struct dim_conf {
-	uint_least64_t idle_msec,
-		       fade_msec,
-		       brighten_msec,
-		       dim_percent;
-};
+ * TODO:
+ * - configuration of which keys are listened for
+ * - configuration of how large the steps are
+ * - idle dimming
+ * - locking
+ * - freezing crypto partitions
+ * - sleeping
 
-#define DIM_CONF_DEFAULT {			\
-	.idle_msec = MSEC_FROM_SEC(60),		\
-	.fade_msec  = MSEC_FROM_SEC(10),	\
-	.brighten_msec = MSEC_FROM_SEC(1),	\
-	.dim_percent = 2			\
-}
 
-/*
- * Settings that describe an interface to perform the dimming
- * 
- * XXX: at the moment, we only support using '/sys/class/backlight' like
- * directories. Alternates include xbacklight.
- */
-struct dim_method_conf {
-	const char *path;
-};
-
-static
-void usage_(const char *pn)
-{
-	fprintf(stderr,
-		"usage: %s [options]\n"
-		"\n"
-		"options:\n"
-		" -h			print this help\n"
-		" -b <backlight dir>	a directory like '/sys/class/backlight/*'\n"
 		" -l <percent>		dim to this percent brightness\n"
 		" -t <msec>		milliseconds (integer) after last activity that the display is dimmed\n"
 		" -f <msec>		milliseconds to fade when dimming\n"
 		" -F <msec>		milliseconds to fade when brightening\n"
-		, pn);
+ */
+
+static const char *opts = "he:b:";
+static
+void usage_(const char *pn)
+{
+	fprintf(stderr,
+		"Adjust brightness based on keypresses\n"
+		"KEY_BRIGHTNESSDOWN & KEY_BRIGHTNESSUP\n"
+		"\n"
+		"usage: %s -[%s]\n"
+		"\n"
+		"options:\n"
+		" -h			print this help\n"
+		" -e <event device>	a file like '/dev/input/event0'\n"
+		" -b <backlight dir>	a directory like '/sys/class/backlight/*'\n"
+		, pn, opts);
+
 }
 #define usage() usage_(argc?argv[0]:"illum-d")
+
+/*
+ * sys_backlight assumes max_brightness is fixed
+ */
+struct sys_backlight {
+	const char *path;
+	int dir_fd;
+	uintmax_t max_brightness;
+	int brightness_fd;
+};
+
+static
+int sys_backlight_init_max_brightness(struct sys_backlight *sb)
+{
+	int mfd = openat(sb->dir_fd, "max_brightness", O_RDONLY);
+	if (mfd == -1)
+		return -2;
+
+	char buf[15];
+	int r = read(mfd, buf, sizeof(buf) - 1);
+	close(mfd);
+
+	if (r == -1)
+		return -3;
+
+	buf[r] = '\0';
+
+	r = sscanf(buf, "%jd", &sb->max_brightness);
+	if (r != 1)
+		return -4;
+
+	return 0;
+}
+
+static
+int sys_backlight_init(struct sys_backlight *sb, const char *path)
+{
+	int ret = 0;
+	sb->path = path;
+	sb->dir_fd = open(sb->path, O_RDONLY | O_DIRECTORY);
+	if (sb->dir_fd == -1)
+		return -1;
+
+	int r = sys_backlight_init_max_brightness(sb);
+	if (r < 0) {
+		ret = r;
+		goto e_out;
+	}
+
+	sb->brightness_fd = openat(sb->dir_fd, "brightness", O_RDONLY);
+	if (!sb->brightness_fd) {
+		ret = -5;
+		goto e_out;
+	}
+
+	return 0;
+
+e_out:
+	close(sb->dir_fd);
+	return ret;
+}
 
 int main(int argc, char **argv)
 {
 	int c, e = 0;
-	struct dim_conf dc = DIM_CONF_DEFAULT;
-	struct dim_method_conf dmc = { NULL };
+	const char *b_path = NULL;
+	const char *e_path = "/dev/input/event0";
 
-	while ((c = getopt(argc, argv, "hbltfF")) != -1) {
+	while ((c = getopt(argc, argv, opts)) != -1) {
 		switch(c) {
 		case 'h':
 			usage();
 			return 0;
 		case 'b':
-			dmc.path = optarg;
+			b_path = optarg;
 			break;
-		case 'l':
-			dc.dim_percent = strtoll(optarg, NULL, 0);
-			break;
-		case 't':
-			dc.idle_msec = strtoll(optarg, NULL, 0);
-			break;
-		case 'f':
-			dc.fade_msec = strtoll(optarg, NULL, 0);
-			break;
-		case 'F':
-			dc.brighten_msec = strtoll(optarg, NULL, 0);
+		case 'e':
+			e_path = optarg;
 			break;
 		case '?':
 		default:
@@ -105,15 +154,30 @@ int main(int argc, char **argv)
 		}
 	}
 
-	if (e) {
+	if (e || !b_path) {
 		usage();
 		return 1;
 	}
 
-	/* TODO: setup driver for brightness setting(s) */
-	/* TODO: setup driver for activity notification */
-	/* TODO: wait for timeout */
-	/* TODO: begin dimming */
+	struct sys_backlight sb;
+	e = sys_backlight_init(&sb, b_path);
+	if (e < 0) {
+		fprintf(stderr, "failed to initialize sys backlight at '%s' (%d)\n", b_path, e);
+		return 2;
+	}
+
+	int ifd = open(e_path, O_RDONLY);
+	if (ifd < 0) {
+		fprintf(stderr, "could not open %s\n", e_path);
+		return 3;
+	}
+
+	struct libevdev *dev;
+	e = libevdev_new_from_fd(ifd, &dev);
+	if (e != 0) {
+		fprintf(stderr, "could not init %s as libevdev device (%d)\n", e_path, e);
+		return 4;
+	}
 
 	return 0;
 }
