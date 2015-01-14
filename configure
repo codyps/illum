@@ -12,8 +12,10 @@
 : ${GIT_VER:=$(git describe --dirty=+ --always --abbrev=0)}
 
 LIBS=libevdev
-LIB_CFLAGS=$(${PKGCONFIG} --cflags ${LIBS})
-LIB_LDFLAGS=$(${PKGCONFIG} --libs ${LIBS})
+# FIXME: libevdev has bugs in it's headers and as a result requires
+# no-strict-aliasing
+LIB_CFLAGS="$(${PKGCONFIG} --cflags ${LIBS}) -fno-strict-aliasing"
+LIB_LDFLAGS="$(${PKGCONFIG} --libs ${LIBS}) -lev"
 
 CFLAGS="${WARN_FLAGS} -std=c99 -D_GNU_SOURCE -DCFG_NEXT_INIT=${CFG_NEXT_INIT} -DCFG_GIT_VERSION=${GIT_VER} ${LIB_CFLAGS} ${CFLAGS}"
 : ${LDFLAGS:="${COMMON_FLAGS}"}

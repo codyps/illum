@@ -29,6 +29,16 @@ The default event source is '/dev/input/event0', you can override it with the
    input device (on Arch a member of group 'input' works) and to write to the
    backlight control
 
+=== Dependencies ===
+
+ - libev :: an event loop
+ - libevdev :: wrapper for linux's input event system
+
+To build:
+
+ - sh
+ - ninja
+
 ==== TODO ====
 
  - dimming based on "activity"

@@ -6,6 +6,7 @@
 
 /* posix */
 #include <unistd.h> /* getopt(), etc */
+#include <errno.h> /* EAGAIN */
 
 /* open() */
 #include <sys/stat.h>
@@ -13,6 +14,9 @@
 
 /* libevdev */
 #include <libevdev/libevdev.h>
+
+/* ev */
+#include "ev-ext.h"
 
 
 /* interfaces:
@@ -129,10 +133,57 @@ e_out:
 	return ret;
 }
 
+struct input_dev {
+	ev_io w;
+	struct libevdev *dev;
+};
+
+static void
+evdev_cb(EV_P_ ev_io *w, int revents)
+{
+	printf("evdev event\n");
+	struct input_dev *id = (struct input_dev *)w;
+	for (;;) {
+		struct input_event ev;
+		int r = libevdev_next_event(id->dev, LIBEVDEV_READ_FLAG_NORMAL, &ev);
+		if ((r == 1) || (r == -EAGAIN))
+			continue;
+
+		if (r != 0)
+			break;
+
+		printf("Event: %s %s %d\n",
+				libevdev_event_type_get_name(ev.type),
+				libevdev_event_code_get_name(ev.type, ev.code),
+				ev.value);
+	}
+}
+
+static
+int input_dev_init(struct input_dev *id, const char *path EV_P__)
+{
+	int ifd = open(path, O_RDONLY|O_NONBLOCK);
+	if (ifd < 0) {
+		fprintf(stderr, "could not open %s\n", path);
+		return -1;
+	}
+
+	int r = libevdev_new_from_fd(ifd, &id->dev);
+	if (r) {
+		fprintf(stderr, "could not init %s as libevdev device (%d)\n", path, r);
+		return -2;
+	}
+
+	ev_io_init(&id->w, evdev_cb, ifd, EV_READ);
+	ev_io_start(EV_A_ &id->w);
+
+	return 0;
+}
+
 int main(int argc, char **argv)
 {
 	int c, e = 0;
-	const char *b_path = NULL;
+	const char *b_path = "/sys/class/backlight/intel_backlight";
 	const char *e_path = "/dev/input/event0";
 
 	while ((c = getopt(argc, argv, opts)) != -1) {
@@ -153,7 +204,7 @@ int main(int argc, char **argv)
 		}
 	}
 
-	if (e || !b_path) {
+	if (e) {
 		usage();
 		return 1;
 	}
@@ -165,18 +216,14 @@ int main(int argc, char **argv)
 		return 2;
 	}
 
-	int ifd = open(e_path, O_RDONLY);
-	if (ifd < 0) {
-		fprintf(stderr, "could not open %s\n", e_path);
-		return 3;
-	}
+	struct ev_loop *loop = EV_DEFAULT;
 
-	struct libevdev *dev;
-	e = libevdev_new_from_fd(ifd, &dev);
-	if (e != 0) {
-		fprintf(stderr, "could not init %s as libevdev device (%d)\n", e_path, e);
-		return 4;
-	}
+	struct input_dev id;
+	e = input_dev_init(&id, e_path EV_A__);
+	if (e < 0)
+		return 3;
+
+	ev_run(loop, 0);
 
 	return 0;
 }
