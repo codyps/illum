@@ -274,7 +274,6 @@ struct input_dev {
 static void
 evdev_cb(EV_P_ ev_io *w, int revents)
 {
-	printf("evdev event\n");
 	struct input_dev *id = (struct input_dev *)w;
 	for (;;) {
 		struct input_event ev;
@@ -303,7 +302,7 @@ evdev_cb(EV_P_ ev_io *w, int revents)
 
 		}
 
-		printf("Event: %s %s %d\n",
+		pr_devel("Event: %s %s %d",
 				libevdev_event_type_get_name(ev.type),
 				libevdev_event_code_get_name(ev.type, ev.code),
 				ev.value);
