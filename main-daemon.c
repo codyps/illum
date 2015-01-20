@@ -294,11 +294,9 @@ evdev_cb(EV_P_ ev_io *w, int revents)
 			/* TODO: allow mapping these to other key combinations */
 			switch(ev.code) {
 			case KEY_BRIGHTNESSUP:
-				printf("UP\n");
 				sys_backlight_brightness_mod(id->bl, +5);
 				break;
 			case KEY_BRIGHTNESSDOWN:
-				printf("DOWN\n");
 				sys_backlight_brightness_mod(id->bl, -5);
 				break;
 			}
