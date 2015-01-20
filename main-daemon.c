@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <assert.h>
 
 /* posix */
 #include <unistd.h> /* getopt(), etc */
@@ -17,6 +18,12 @@
 
 /* ev */
 #include "ev-ext.h"
+
+#ifdef DEVEL
+#define pr_devel(fmt, ...) fprintf(stderr, fmt "\n", ## __VA_ARGS__)
+#else
+#define pr_devel(fmt, ...)
+#endif
 
 
 /* interfaces:
@@ -83,9 +90,9 @@ struct sys_backlight {
 };
 
 static
-int sys_backlight_init_max_brightness(struct sys_backlight *sb)
+intmax_t attr_read_int(int at_fd, const char *path)
 {
-	int mfd = openat(sb->dir_fd, "max_brightness", O_RDONLY);
+	int mfd = openat(at_fd, path, O_RDONLY);
 	if (mfd == -1)
 		return -2;
 
@@ -98,9 +105,134 @@ int sys_backlight_init_max_brightness(struct sys_backlight *sb)
 
 	buf[r] = '\0';
 
-	r = sscanf(buf, "%jd", &sb->max_brightness);
+	intmax_t res;
+	r = sscanf(buf, "%jd", &res);
 	if (r != 1)
 		return -4;
+
+	return res;
+}
+
+static
+int attr_write_int(int at_fd, const char *path, intmax_t v)
+{
+	int mfd = openat(at_fd, path, O_WRONLY);
+	if (mfd == -1)
+		return -2;
+
+	char buf[15];
+	int l = snprintf(buf, sizeof(buf), "%jd", v);
+
+	ssize_t r = write(mfd, buf, l);
+	if (r == -1)
+		return -3;
+
+	return 0;
+}
+
+static
+int sys_backlight_init_max_brightness(struct sys_backlight *sb)
+{
+	intmax_t r = attr_read_int(sb->dir_fd, "max_brightness");
+	if (r < 0)
+		return r;
+
+	if (!sb->max_brightness)
+		return -1;
+
+	if (sb->max_brightness >= UINTMAX_MAX / 100)
+		return -2;
+
+	sb->max_brightness = r;
+	return 0;
+}
+
+/*
+ * Divide positive or negative dividend by positive divisor and round
+ * to closest integer. Result is undefined for negative divisors and
+ * for negative dividends if the divisor variable type is unsigned.
+ */
+#define DIV_ROUND_CLOSEST(x, divisor)(			\
+{							\
+	__typeof__(x) __x = x;				\
+	__typeof__(divisor) __d = divisor;			\
+	(((__typeof__(x))-1) > 0 ||				\
+	 ((__typeof__(divisor))-1) > 0 || (__x) > 0) ?	\
+		(((__x) + ((__d) / 2)) / (__d)) :	\
+		(((__x) - ((__d) / 2)) / (__d));	\
+}							\
+)
+
+/*
+ * min()/max()/clamp() macros that also do
+ * strict type-checking.. See the
+ * "unnecessary" pointer comparison.
+ */
+#define min(x, y) ({				\
+	__typeof__(x) _min1 = (x);			\
+	__typeof__(y) _min2 = (y);			\
+	(void) (&_min1 == &_min2);		\
+	_min1 < _min2 ? _min1 : _min2; })
+
+#define max(x, y) ({				\
+	__typeof__(x) _max1 = (x);			\
+	__typeof__(y) _max2 = (y);			\
+	(void) (&_max1 == &_max2);		\
+	_max1 > _max2 ? _max1 : _max2; })
+
+/**
+ * clamp - return a value clamped to a given range with strict typechecking
+ * @val: current value
+ * @lo: lowest allowable value
+ * @hi: highest allowable value
+ *
+ * This macro does strict typechecking of lo/hi to make sure they are of the
+ * same type as val.  See the unnecessary pointer comparisons.
+ */
+#define clamp(val, lo, hi) min((__typeof__(val))max(val, lo), hi)
+
+static
+int sys_backlight_brightness_get(struct sys_backlight *sb)
+{
+	intmax_t r = attr_read_int(sb->dir_fd, "brightness");
+	if (r < 0)
+		return r;
+
+	if ((uintmax_t)r > sb->max_brightness)
+		return -5;
+
+	if (r >= UINTMAX_MAX / 100)
+		return -6;
+
+	int res = DIV_ROUND_CLOSEST((uintmax_t)r * 100, sb->max_brightness);
+	return res;
+}
+
+static
+int sys_backlight_brightness_set(struct sys_backlight *sb, unsigned percent)
+{
+	/* XXX: overflow danger
+	 * sb->max_brightness * percent < UINTMAX_MAX
+	 * sb->max_brightness < UINTMAX_MAX / percent
+	 */
+	if (percent > 100)
+		percent = 100;
+	uintmax_t v = sb->max_brightness * percent / 100;
+	return attr_write_int(sb->dir_fd, "brightness", v);
+}
+
+static
+int sys_backlight_brightness_mod(struct sys_backlight *sb, int percent)
+{
+	int curr = sys_backlight_brightness_get(sb);
+	if (curr < 0)
+		return curr;
+
+	curr += percent;
+	curr = clamp(curr, 0, 100);
+	int r = sys_backlight_brightness_set(sb, curr);
+	if (r < 0)
+		return r;
 
 	return 0;
 }
@@ -136,6 +268,7 @@ e_out:
 struct input_dev {
 	ev_io w;
 	struct libevdev *dev;
+	struct sys_backlight *bl;
 };
 
 static void
@@ -152,6 +285,26 @@ evdev_cb(EV_P_ ev_io *w, int revents)
 		if (r != 0)
 			break;
 
+		/* On certain key pressess... */
+		/* TODO: recognize held keys and dim at some to be determined
+		 * rate */
+		/* TODO: recognize modifier keys and dim with rate variations
+		 */
+		if (ev.type == EV_KEY && ev.value == 0) {
+			/* TODO: allow mapping these to other key combinations */
+			switch(ev.code) {
+			case KEY_BRIGHTNESSUP:
+				printf("UP\n");
+				sys_backlight_brightness_mod(id->bl, +5);
+				break;
+			case KEY_BRIGHTNESSDOWN:
+				printf("DOWN\n");
+				sys_backlight_brightness_mod(id->bl, -5);
+				break;
+			}
+
+		}
+
 		printf("Event: %s %s %d\n",
 				libevdev_event_type_get_name(ev.type),
 				libevdev_event_code_get_name(ev.type, ev.code),
@@ -160,7 +313,7 @@ evdev_cb(EV_P_ ev_io *w, int revents)
 }
 
 static
-int input_dev_init(struct input_dev *id, const char *path EV_P__)
+int input_dev_init(struct input_dev *id, const char *path, struct sys_backlight *sb EV_P__)
 {
 	int ifd = open(path, O_RDONLY|O_NONBLOCK);
 	if (ifd < 0) {
@@ -174,6 +327,8 @@ int input_dev_init(struct input_dev *id, const char *path EV_P__)
 		return -2;
 	}
 
+	id->bl = sb;
+
 	ev_io_init(&id->w, evdev_cb, ifd, EV_READ);
 	ev_io_start(EV_A_ &id->w);
 
@@ -184,7 +339,7 @@ int main(int argc, char **argv)
 {
 	int c, e = 0;
 	const char *b_path = "/sys/class/backlight/intel_backlight";
-	const char *e_path = "/dev/input/event0";
+	const char *e_path = "/dev/input/event15";
 
 	while ((c = getopt(argc, argv, opts)) != -1) {
 		switch(c) {
@@ -219,7 +374,7 @@ int main(int argc, char **argv)
 	struct ev_loop *loop = EV_DEFAULT;
 
 	struct input_dev id;
-	e = input_dev_init(&id, e_path EV_A__);
+	e = input_dev_init(&id, e_path, &sb EV_A__);
 	if (e < 0)
 		return 3;
 

@@ -41,6 +41,7 @@ To build:
 
 ==== TODO ====
 
+ - use all event devices by default, filter out mouse
  - dimming based on "activity"
     - detects activity
     - obeys inhibits (time limited and lifetime limited)
