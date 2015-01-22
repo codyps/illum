@@ -1,6 +1,7 @@
 #! /bin/sh
 
 : ${CROSS_COMPILER:=}
+: ${HOST_CC:=cc}
 : ${CC:=${CROSS_COMPILER}cc}
 
 : ${PKGCONFIG:=pkg-config}
@@ -14,20 +15,36 @@
 LIBS=libevdev
 # FIXME: libevdev has bugs in it's headers and as a result requires
 # no-strict-aliasing
-LIB_CFLAGS="$(${PKGCONFIG} --cflags ${LIBS}) -fno-strict-aliasing"
+LIB_CFLAGS="$(${PKGCONFIG} --cflags ${LIBS}) -fno-strict-aliasing -Iccan"
 LIB_LDFLAGS="$(${PKGCONFIG} --libs ${LIBS}) -lev"
 
-CFLAGS="${WARN_FLAGS} -std=c99 -D_GNU_SOURCE -DCFG_NEXT_INIT=${CFG_NEXT_INIT} -DCFG_GIT_VERSION=${GIT_VER} ${LIB_CFLAGS} ${CFLAGS}"
+CFLAGS="${WARN_FLAGS} -std=c99 -D_GNU_SOURCE ${CFLAGS}"
+: ${HOST_CFLAGS:=${CFLAGS}}
+CFLAGS="-DCFG_NEXT_INIT=${CFG_NEXT_INIT} -DCFG_GIT_VERSION=${GIT_VER} ${LIB_CFLAGS} ${CFLAGS}"
+
 : ${LDFLAGS:="${COMMON_FLAGS}"}
+: ${HOST_LDFLAGS:=${LDFLAGS}}
 LDFLAGS="${LIB_LDFLAGS} ${LDFLAGS}"
+
+CONFIGURATOR_DIR="./ccan/tools/configurator"
 
 exec >build.ninja
 
+
+to_host () {
+	for i in "$@"; do
+		printf "%s " ".host/$i"
+	done
+}
+
 cat <<EOF
 cc = $CC
+host_cc = $HOST_CC
 objcopy = $OBJCOPY
+host_cflags = $HOST_CFLAGS
 cflags = $CFLAGS
 ldflags = $LDFLAGS
+host_ldflags = $HOST_LDFLAGS
 
 rule cc
   command = \$cc \$cflags -MMD -MF \$out.d  -c \$in -o \$out
@@ -36,10 +53,20 @@ rule cc
 rule ccld
   command = \$cc \$ldflags -o \$out \$in
 
+rule host-ccld
+  command = \$host_cc \$host_ldflags -o \$out \$in
+
+rule config_h
+  command = cd \$out_dir && ../$(to_host configurator) \$cc \$cflags > ../\$out
+
 rule ninja_gen
   command = $0
   generator = yes
 build build.ninja : ninja_gen $0
+
+build $(to_host configurator) : ccld $CONFIGURATOR_DIR/configurator.c
+  ldflags = \$host_ldflags \$host_cflags
+  cc = \$host_cc
 EOF
 
 to_out () {
@@ -64,17 +91,20 @@ bin () {
 	out_var="${out/./_}"
 
 	for s in "$@"; do
-		echo build $(to_obj "$s"): cc $s
+		echo "build $(to_obj "$s"): cc $s | $(to_out config.h)"
+		echo "  cflags = \$cflags -I.build-$out"
 	done
 
 	cat <<EOF
+build $(to_out config.h) : config_h | $(to_host configurator)
+  out_dir = .build-$out
 build $out : ccld $(to_obj "$@")
 EOF
 	BINS="$BINS $out"
 }
 BINS=""
 
-bin illum-d   main-daemon.c
+bin illum-d   main-daemon.c ccan/ccan/pr_log/pr_log.c
 bin illum-ctl main-ctl.c
 
 echo default ${BINS}

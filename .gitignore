@@ -1,5 +1,7 @@
 .ninja_*
 build.ninja
+.host*
+.build*
 
 illum-d
 illum-ctl

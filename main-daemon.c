@@ -1,13 +1,19 @@
 /* ex: set noet sw=8 sts=8 ts=8 tw=78: */
 
-#include <stdio.h>
-#include <stdint.h>
-#include <stdlib.h>
 #include <assert.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 /* posix */
 #include <unistd.h> /* getopt(), etc */
 #include <errno.h> /* EAGAIN */
+
+/* opendir() */
+#include <sys/types.h>
+#include <dirent.h>
 
 /* open() */
 #include <sys/stat.h>
@@ -19,11 +25,9 @@
 /* ev */
 #include "ev-ext.h"
 
-#ifdef DEVEL
-#define pr_devel(fmt, ...) fprintf(stderr, fmt "\n", ## __VA_ARGS__)
-#else
-#define pr_devel(fmt, ...)
-#endif
+
+/* ccan */
+#include <ccan/pr_log/pr_log.h>
 
 
 /* interfaces:
@@ -302,7 +306,7 @@ evdev_cb(EV_P_ ev_io *w, int revents)
 
 		}
 
-		pr_devel("Event: %s %s %d",
+		pr_devel("Event: %s %s %d\n",
 				libevdev_event_type_get_name(ev.type),
 				libevdev_event_code_get_name(ev.type, ev.code),
 				ev.value);
@@ -310,9 +314,9 @@ evdev_cb(EV_P_ ev_io *w, int revents)
 }
 
 static
-int input_dev_init(struct input_dev *id, const char *path, struct sys_backlight *sb EV_P__)
+int input_dev_init(struct input_dev *id, int at_fd, const char *path, struct sys_backlight *sb EV_P__)
 {
-	int ifd = open(path, O_RDONLY|O_NONBLOCK);
+	int ifd = openat(at_fd, path, O_RDONLY|O_NONBLOCK);
 	if (ifd < 0) {
 		fprintf(stderr, "could not open %s\n", path);
 		return -1;
@@ -320,14 +324,26 @@ int input_dev_init(struct input_dev *id, const char *path, struct sys_backlight 
 
 	int r = libevdev_new_from_fd(ifd, &id->dev);
 	if (r) {
-		fprintf(stderr, "could not init %s as libevdev device (%d)\n", path, r);
+		pr_devel("could not init %s as libevdev device (%d)\n", path, r);
+		close(ifd);
 		return -2;
+	}
+
+	/* Ignore devices we don't care about.
+	 * TODO: make this more generic/define once
+	 */
+	if (!libevdev_has_event_code(id->dev, EV_KEY, KEY_BRIGHTNESSDOWN)
+		&& !libevdev_has_event_code(id->dev, EV_KEY, KEY_BRIGHTNESSUP)) {
+		close(ifd);
+		return -3;
 	}
 
 	id->bl = sb;
 
 	ev_io_init(&id->w, evdev_cb, ifd, EV_READ);
 	ev_io_start(EV_A_ &id->w);
+
+	pr_debug("I: using %s as an input dev\n", path);
 
 	return 0;
 }
@@ -336,7 +352,6 @@ int main(int argc, char **argv)
 {
 	int c, e = 0;
 	const char *b_path = "/sys/class/backlight/intel_backlight";
-	const char *e_path = "/dev/input/event15";
 
 	while ((c = getopt(argc, argv, opts)) != -1) {
 		switch(c) {
@@ -345,9 +360,6 @@ int main(int argc, char **argv)
 			return 0;
 		case 'b':
 			b_path = optarg;
-			break;
-		case 'e':
-			e_path = optarg;
 			break;
 		case '?':
 		default:
@@ -361,6 +373,9 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
+	/*
+	 * Backlight
+	 */
 	struct sys_backlight sb;
 	e = sys_backlight_init(&sb, b_path);
 	if (e < 0) {
@@ -370,10 +385,46 @@ int main(int argc, char **argv)
 
 	struct ev_loop *loop = EV_DEFAULT;
 
-	struct input_dev id;
-	e = input_dev_init(&id, e_path, &sb EV_A__);
-	if (e < 0)
-		return 3;
+	/*
+	 * Input dev
+	 */
+	size_t ev_sources = 0;
+	const char *i_path = "/dev/input";
+	DIR *idir = opendir(i_path);
+	if (!idir) {
+		fprintf(stderr, "cannot open %s dir: %s\n",
+				i_path, strerror(errno));
+		return 1;
+	}
+	ssize_t name_max = pathconf(i_path, _PC_NAME_MAX);
+	if (name_max == -1)
+		name_max = 255;
+	size_t len = offsetof(struct dirent, d_name) + name_max + 1;
+	uint8_t entry_buf[len];
+	struct dirent  *res;
+	for (;;) {
+		int r = readdir_r(idir, (struct dirent *)entry_buf, &res);
+		if (r) {
+			fprintf(stderr, "readdir_r failure: %s\n",
+					strerror(errno));
+			return 1;
+		}
+
+		if (!res)
+			break;
+
+		struct input_dev *id = malloc(sizeof(*id));
+		e = input_dev_init(id, dirfd(idir), res->d_name, &sb EV_A__);
+		if (e < 0)
+			continue;
+
+		ev_sources++;
+	}
+
+	if (ev_sources == 0) {
+		fprintf(stderr, "could not find any input devices for the keys we need\n");
+		return 1;
+	}
 
 	ev_run(loop, 0);
 
