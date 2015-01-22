@@ -20,8 +20,8 @@ then call ninja.
 
 Run `./illum-d -b /sys/class/backlight/intel_backlight`.
 
-The default event source is '/dev/input/event0', you can override it with the
-'-e' flag.
+Currently, it attaches to all event sources that supply backlight up and
+backlight down keys (assuming they exist under /dev/input/* )
 
 === Notes ===
 
@@ -33,6 +33,7 @@ The default event source is '/dev/input/event0', you can override it with the
 
  - libev :: an event loop
  - libevdev :: wrapper for linux's input event system
+ - ccan (as a submodule) :: misc utility code
 
 To build:
 
@@ -41,7 +42,11 @@ To build:
 
 ==== TODO ====
 
- - use all event devices by default, filter out mouse
+ - figure out the right way to enumerate input devices (rather than readdir of
+   /dev/input)
+ - Hotplug new input devices
+ - Better key combo support
+ - Exponential dimming curve
  - dimming based on "activity"
     - detects activity
     - obeys inhibits (time limited and lifetime limited)
@@ -49,8 +54,6 @@ To build:
       - showing other status (caps lock, num lock) may also be useful on come
         machines
     - dim bl durring inactivity
- - support multiple event devices
- - support hotpluged event devices
 
 Inspiration:
 
