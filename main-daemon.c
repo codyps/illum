@@ -64,7 +64,7 @@
 		" -F <msec>		milliseconds to fade when brightening\n"
  */
 
-static const char *opts = "he:b:";
+static const char *opts = "hb:";
 static
 void usage_(const char *pn)
 {
@@ -76,7 +76,6 @@ void usage_(const char *pn)
 		"\n"
 		"options:\n"
 		" -h			print this help\n"
-		" -e <event device>	a file like '/dev/input/event0'\n"
 		" -b <backlight dir>	a directory like '/sys/class/backlight/*'\n"
 		, pn, opts);
 
