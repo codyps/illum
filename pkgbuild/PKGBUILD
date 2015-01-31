@@ -1,0 +1,47 @@
+# Maintainer: Cody Schafer <dev@codyps.com>
+
+_bpn=illum
+pkgname=$_bpn-git
+pkgrel=1
+pkgdesc="A daemon that responds to brightness keys by changing the backlight level"
+licence=('AGPLv3')
+arch=('i686' 'x86_64')
+
+url="https://github.com/jmesmon/$_bpn"
+source=("git+$url"
+	"git+https://github.com/jmesmon/ccan")
+
+md5sums=('SKIP' 'SKIP')
+
+conflicts=("$_bpn")
+provides=("$_bpn")
+
+makedepends=('git')
+
+# from https://wiki.archlinux.org/index.php/VCS_package_guidelines
+pkgver=r15.c0a16f5
+pkgver() {
+	cd "$srcdir/$_bpn"
+	( set -o pipefail
+		git describe --long --tags 2>/dev/null | sed 's/\([^-]*-g\)/r\1/;s/-/./g' ||
+		printf "r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+	)
+}
+
+prepare () {
+	cd "$srcdir/$_bpn"
+	git submodule init
+	git config submodule.ccan.url $srcdir/ccan
+	git submodule update
+}
+
+build () {
+	cd "$srcdir/$_bpn"
+	./build
+}
+
+package () {
+	cd "$srcdir/$_bpn"
+	install -d "$pkgdir/usr/bin"
+	install illum-d "$pkgdir/usr/bin"
+}
