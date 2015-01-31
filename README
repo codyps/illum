@@ -42,6 +42,7 @@ To build:
 
 ==== TODO ====
 
+ - autodetect backlight devices
  - figure out the right way to enumerate input devices (rather than readdir of
    /dev/input)
  - Hotplug new input devices
