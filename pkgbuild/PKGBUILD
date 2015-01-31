@@ -1,6 +1,6 @@
 # Maintainer: Cody Schafer <dev@codyps.com>
 
-pkgrel=2
+pkgrel=1
 _bpn=illum
 pkgname=$_bpn-git
 pkgdesc="A daemon that responds to brightness keys by changing the backlight level"
@@ -21,7 +21,7 @@ makedepends=('git' 'ninja' 'sh')
 depends=('libevdev' 'libev')
 
 # from https://wiki.archlinux.org/index.php/VCS_package_guidelines
-pkgver=r15.c0a16f5
+pkgver=r19.590441f
 pkgver() {
 	cd "$srcdir/$_bpn"
 	( set -o pipefail
