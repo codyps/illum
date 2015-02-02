@@ -281,11 +281,19 @@ evdev_cb(EV_P_ ev_io *w, int revents)
 	for (;;) {
 		struct input_event ev;
 		int r = libevdev_next_event(id->dev, LIBEVDEV_READ_FLAG_NORMAL, &ev);
-		if ((r == 1) || (r == -EAGAIN))
+
+		/* no events */
+		if (r == -EAGAIN)
+			break;
+
+		/* need sync??
+		 * FIXME: determine if we're handling this properly or if we
+		 * even really need to handle it.
+		 */
+		if (r == LIBEVDEV_READ_STATUS_SYNC)
 			continue;
 
-		if (r != 0)
-			break;
+		assert(r == LIBEVDEV_READ_STATUS_SUCCESS);
 
 		/* On certain key pressess... */
 		/* TODO: recognize held keys and dim at some to be determined

@@ -7,7 +7,7 @@
 : ${PKGCONFIG:=pkg-config}
 : ${WARN_FLAGS_C:="-Wstrict-prototypes -Wmissing-prototypes -Wold-style-definition -Wmissing-declarations -Wbad-function-cast"}
 : ${WARN_FLAGS:="-Wall -Wundef -Wshadow -Wcast-align -Wwrite-strings ${WARN_FLAGS_C}"}
-: ${COMMON_FLAGS:="-fsanitize=address -flto -Os -ggdb3"}
+: ${COMMON_FLAGS:="-fsanitize=address -fsanitize=undefined -flto -Os -ggdb3 -fvar-tracking-assignments"}
 : ${CFLAGS:="${COMMON_FLAGS}"}
 : ${CFG_NEXT_INIT:=/sbin/init}
 : ${GIT_VER:=$(git describe --dirty=+ --always --abbrev=0)}
