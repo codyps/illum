@@ -28,6 +28,7 @@
 
 /* ccan */
 #include <ccan/pr_log/pr_log.h>
+#include <ccan/str/str.h>
 
 
 /* interfaces:
@@ -64,11 +65,12 @@
 		" -F <msec>		milliseconds to fade when brightening\n"
  */
 
-static const char *opts = "hb:";
+static const char *opts = "Vhb:";
 static
 void usage_(const char *pn)
 {
 	fprintf(stderr,
+		"illum: %s\n"
 		"Adjust brightness based on keypresses\n"
 		"KEY_BRIGHTNESSDOWN & KEY_BRIGHTNESSUP\n"
 		"\n"
@@ -76,10 +78,12 @@ void usage_(const char *pn)
 		"\n"
 		"options:\n"
 		" -h			print this help\n"
+		" -V			print version info\n"
 		" -b <backlight dir>	a directory like '/sys/class/backlight/*'\n"
-		, pn, opts);
+		, stringify(CFG_GIT_VERSION), pn, opts);
 
 }
+
 #define usage() usage_(argc?argv[0]:"illum-d")
 
 /*
@@ -368,6 +372,9 @@ int main(int argc, char **argv)
 		case 'b':
 			b_path = optarg;
 			break;
+		case 'V':
+			puts("illum: " stringify(CFG_GIT_VERSION));
+			return 0;
 		case '?':
 		default:
 			fprintf(stderr, "got %c for %s %c\n", c, optarg, optopt);
