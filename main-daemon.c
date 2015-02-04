@@ -70,7 +70,7 @@ static
 void usage_(const char *pn)
 {
 	fprintf(stderr,
-		"illum: %s\n"
+		"illum-%s\n"
 		"Adjust brightness based on keypresses\n"
 		"KEY_BRIGHTNESSDOWN & KEY_BRIGHTNESSUP\n"
 		"\n"
@@ -437,7 +437,7 @@ int main(int argc, char **argv)
 			l = x;
 		}
 		case 'V':
-			puts("illum: " stringify(CFG_GIT_VERSION));
+			puts("illum-" stringify(CFG_GIT_VERSION));
 			return 0;
 		case '?':
 		default:
