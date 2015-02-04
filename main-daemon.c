@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 /* posix */
 #include <unistd.h> /* getopt(), etc */
@@ -24,7 +25,6 @@
 
 /* ev */
 #include "ev-ext.h"
-
 
 /* ccan */
 #include <ccan/pr_log/pr_log.h>
@@ -80,6 +80,9 @@ void usage_(const char *pn)
 		" -h			print this help\n"
 		" -V			print version info\n"
 		" -b <backlight dir>	a directory like '/sys/class/backlight/*'\n"
+		" -l <linearity>	an integer indicating how many times to multiply the\n"
+		"			values from the backlight by themselves to obtain a\n"
+		"			reasonable approximation of real brightness\n"
 		, stringify(CFG_GIT_VERSION), pn, opts);
 
 }
@@ -94,6 +97,7 @@ struct sys_backlight {
 	int dir_fd;
 	uintmax_t max_brightness;
 	int brightness_fd;
+	unsigned linearity;
 };
 
 static
@@ -198,6 +202,25 @@ int sys_backlight_init_max_brightness(struct sys_backlight *sb)
  */
 #define clamp(val, lo, hi) min((__typeof__(val))max(val, lo), hi)
 
+#if 0
+static uint32_t
+isqrt(uint64_t const n)
+{
+    uint64_t xk = n;
+    if (n == 0)
+	    return 0;
+    if (n == 18446744073709551615ULL)
+	    return 4294967295U;
+    for (;;) {
+        uint64_t const xk1 = (xk + n / xk) / 2;
+        if (xk1 >= xk)
+            return xk;
+        else
+            xk = xk1;
+    }
+}
+#endif
+
 static
 int sys_backlight_brightness_get(struct sys_backlight *sb)
 {
@@ -208,23 +231,51 @@ int sys_backlight_brightness_get(struct sys_backlight *sb)
 	if ((uintmax_t)r > sb->max_brightness)
 		return -5;
 
-	if (r >= UINTMAX_MAX / 100)
-		return -6;
+	pr_debug("got raw brightness %ju\n", r);
 
-	int res = DIV_ROUND_CLOSEST((uintmax_t)r * 100, sb->max_brightness);
-	return res;
+	double x = r;
+	double div = sb->max_brightness;
+	unsigned i;
+	for (i = 0; i < (sb->linearity - 1); i++) {
+		x = sqrt(x);
+		div = sqrt(div);
+	}
+
+	double old = x;
+	x *= 100;
+	x /= div;
+
+	pr_debug("calcing retreved brightness as: %f * 100 / %f -> %f\n",
+			old, div, x);
+	return round(x);
 }
 
 static
 int sys_backlight_brightness_set(struct sys_backlight *sb, unsigned percent)
 {
+	/* f(percent) -> setting */
+
+	pr_debug("setting brightess to %u\n", percent);
+
 	/* XXX: overflow danger
 	 * sb->max_brightness * percent < UINTMAX_MAX
 	 * sb->max_brightness < UINTMAX_MAX / percent
 	 */
 	if (percent > 100)
 		percent = 100;
-	uintmax_t v = sb->max_brightness * percent / 100;
+
+	/* pretend that brightness goes up like an exponent */
+	unsigned div = 100;
+	unsigned i;
+	for (i = 0; i < (sb->linearity - 1); i++) {
+		percent *= percent;
+		div *= div;
+	}
+
+	uintmax_t v = sb->max_brightness * percent / div;
+
+	pr_debug("using formula: %ju * %u / %u -> %ju\n",
+			sb->max_brightness, percent, div, v);
 	return attr_write_int(sb->dir_fd, "brightness", v);
 }
 
@@ -245,7 +296,7 @@ int sys_backlight_brightness_mod(struct sys_backlight *sb, int percent)
 }
 
 static
-int sys_backlight_init(struct sys_backlight *sb, const char *path)
+int sys_backlight_init(struct sys_backlight *sb, const char *path, unsigned linearity)
 {
 	int ret = 0;
 	sb->path = path;
@@ -264,6 +315,8 @@ int sys_backlight_init(struct sys_backlight *sb, const char *path)
 		ret = -5;
 		goto e_out;
 	}
+
+	sb->linearity = linearity;
 
 	return 0;
 
@@ -362,6 +415,7 @@ int input_dev_init(struct input_dev *id, int at_fd, const char *path, struct sys
 int main(int argc, char **argv)
 {
 	int c, e = 0;
+	unsigned l = 2;
 	const char *b_path = "/sys/class/backlight/intel_backlight";
 
 	while ((c = getopt(argc, argv, opts)) != -1) {
@@ -372,6 +426,16 @@ int main(int argc, char **argv)
 		case 'b':
 			b_path = optarg;
 			break;
+		case 'l': {
+			long x = strtol(optarg, NULL, 0);
+			if (x < 0) {
+				e++;
+				fprintf(stderr, "E: -l must be positive, got %ld\n", x);
+				break;
+			}
+
+			l = x;
+		}
 		case 'V':
 			puts("illum: " stringify(CFG_GIT_VERSION));
 			return 0;
@@ -391,7 +455,7 @@ int main(int argc, char **argv)
 	 * Backlight
 	 */
 	struct sys_backlight sb;
-	e = sys_backlight_init(&sb, b_path);
+	e = sys_backlight_init(&sb, b_path, l);
 	if (e < 0) {
 		fprintf(stderr, "failed to initialize sys backlight at '%s' (%d)\n", b_path, e);
 		return 2;
