@@ -1,0 +1,10 @@
+#!/bin/sh
+
+set -euf
+
+cd "$(dirname "$0")"
+
+install -d "$DESTDIR$PREFIX/bin"
+install illum-d "$DESTDIR$PREFIX/bin"
+install -d "$DESTDIR$PREFIX/lib/systemd/system"
+sed -e 's;@bindir@;'$PREFIX'/bin;' "illum.service" > "$DESTDIR$PREFIX/lib/systemd/system/illum.service"
