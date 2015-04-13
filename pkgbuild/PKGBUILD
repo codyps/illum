@@ -16,7 +16,7 @@ md5sums=('SKIP' 'SKIP')
 conflicts=("$_bpn")
 provides=("$_bpn")
 
-makedepends=('git' 'ninja' 'sh')
+makedepends=('git' 'ninja' 'sh' 'pkg-config')
 
 depends=('libevdev' 'libev')
 
