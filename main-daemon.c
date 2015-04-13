@@ -418,7 +418,7 @@ int main(int argc, char **argv)
 {
 	int c, e = 0;
 	unsigned l = 2;
-	const char *b_path = "/sys/class/backlight/intel_backlight";
+	char *b_path = NULL;
 
 	while ((c = getopt(argc, argv, opts)) != -1) {
 		switch(c) {
@@ -456,6 +456,53 @@ int main(int argc, char **argv)
 	/*
 	 * Backlight
 	 */
+	if (!b_path) {
+		const char *p = "/sys/class/backlight";
+		pr_debug("no backlight path given, scanning %s\n", p);
+		DIR *d = opendir(p);
+		if (!d) {
+			fprintf(stderr, "could not open dir '%s'\n", p);
+			return 2;
+		}
+		size_t name_max = pathconf(p, _PC_NAME_MAX);
+		if (name_max == -1)
+			name_max = 255;
+		uint8_t d_buf[offsetof(struct dirent, d_name) + name_max + 1];
+		struct dirent *res;
+
+		for (;;) {
+			e = readdir_r(d, (struct dirent *)d_buf, &res);
+			if (e) {
+				fprintf(stderr, "failed to read an entry from '%s'\n", p);
+				return 2;
+			}
+
+			if (!res) {
+				fprintf(stderr, "no backlight entries found in '%s'\n", p);
+				return 2;
+			}
+
+			if (*res->d_name == '.')
+				continue;
+
+			break;
+		}
+
+		pr_debug("found backlight %s/%s\n", p, res->d_name);
+
+		size_t plen = strlen(p) + 1 + strlen(res->d_name) + 1;
+		b_path = malloc(plen);
+		if (!b_path) {
+			fprintf(stderr, "path allocation failed: %zu bytes, '%s' + '%s'\n", plen, p, res->d_name);
+			return 2;
+		}
+
+		memcpy(b_path, p, strlen(p));
+		b_path[strlen(p)] = '/';
+		memcpy(b_path + strlen(p) + 1, res->d_name, strlen(res->d_name));
+		b_path[plen - 1] = '\0';
+	}
+
 	struct sys_backlight sb;
 	e = sys_backlight_init(&sb, b_path, l);
 	if (e < 0) {
