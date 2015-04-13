@@ -274,7 +274,7 @@ int sys_backlight_brightness_set(struct sys_backlight *sb, unsigned percent)
 
 	uintmax_t v = sb->max_brightness * percent / div;
 
-	if (v == 0)
+	if (v == 0 && percent)
 		v = 1;
 	pr_debug("using formula: %ju * %u / %u -> %ju\n",
 			sb->max_brightness, percent, div, v);
