@@ -251,7 +251,7 @@ int sys_backlight_brightness_get(struct sys_backlight *sb)
 }
 
 static
-int sys_backlight_brightness_set(struct sys_backlight *sb, unsigned percent)
+int sys_backlight_brightness_set(struct sys_backlight *sb, unsigned percent, bool non_zero)
 {
 	/* f(percent) -> setting */
 
@@ -274,7 +274,7 @@ int sys_backlight_brightness_set(struct sys_backlight *sb, unsigned percent)
 
 	uintmax_t v = sb->max_brightness * percent / div;
 
-	if (v == 0 && percent)
+	if (v == 0 && non_zero && percent)
 		v = 1;
 	pr_debug("using formula: %ju * %u / %u -> %ju\n",
 			sb->max_brightness, percent, div, v);
@@ -290,7 +290,7 @@ int sys_backlight_brightness_mod(struct sys_backlight *sb, int percent)
 
 	curr += percent;
 	curr = clamp(curr, 0, 100);
-	int r = sys_backlight_brightness_set(sb, curr);
+	int r = sys_backlight_brightness_set(sb, curr, percent > 0);
 	if (r < 0)
 		return r;
 
