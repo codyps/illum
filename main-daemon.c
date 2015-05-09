@@ -65,6 +65,9 @@
 		" -F <msec>		milliseconds to fade when brightening\n"
  */
 
+#define PERCENT_TO_BRIGHTNESS(x) ((x) * 10)
+#define MAX_BRIGHTNESS PERCENT_TO_BRIGHTNESS(100)
+
 static const char *opts = "Vhb:";
 static
 void usage_(const char *pn)
@@ -151,7 +154,7 @@ int sys_backlight_init_max_brightness(struct sys_backlight *sb)
 	if (!sb->max_brightness)
 		return -1;
 
-	if (sb->max_brightness >= UINTMAX_MAX / 100)
+	if (sb->max_brightness >= UINTMAX_MAX / MAX_BRIGHTNESS)
 		return -2;
 
 	sb->max_brightness = r;
@@ -242,11 +245,11 @@ int sys_backlight_brightness_get(struct sys_backlight *sb)
 	}
 
 	double old = x;
-	x *= 100;
+	x *= MAX_BRIGHTNESS;
 	x /= div;
 
-	pr_debug("calcing retreved brightness as: %f * 100 / %f -> %f\n",
-			old, div, x);
+	pr_debug("calcing retreved brightness as: %f * %d / %f -> %f\n",
+			old, MAX_BRIGHTNESS, div, x);
 	return round(x);
 }
 
@@ -261,11 +264,11 @@ int sys_backlight_brightness_set(struct sys_backlight *sb, unsigned percent, boo
 	 * sb->max_brightness * percent < UINTMAX_MAX
 	 * sb->max_brightness < UINTMAX_MAX / percent
 	 */
-	if (percent > 100)
-		percent = 100;
+	if (percent > MAX_BRIGHTNESS)
+		percent = MAX_BRIGHTNESS;
 
 	/* pretend that brightness goes up like an exponent */
-	unsigned div = 100;
+	unsigned div = MAX_BRIGHTNESS;
 	unsigned i;
 	for (i = 0; i < (sb->linearity - 1); i++) {
 		percent *= percent;
@@ -273,7 +276,6 @@ int sys_backlight_brightness_set(struct sys_backlight *sb, unsigned percent, boo
 	}
 
 	uintmax_t v = sb->max_brightness * percent / div;
-
 	if (v == 0 && non_zero && percent)
 		v = 1;
 	pr_debug("using formula: %ju * %u / %u -> %ju\n",
@@ -288,9 +290,8 @@ int sys_backlight_brightness_mod(struct sys_backlight *sb, int percent)
 	if (curr < 0)
 		return curr;
 
-	curr += percent;
-	curr = clamp(curr, 0, 100);
-	int r = sys_backlight_brightness_set(sb, curr, percent > 0);
+	int new = clamp(curr + percent, 0, MAX_BRIGHTNESS);
+	int r = sys_backlight_brightness_set(sb, new, percent > 0);
 	if (r < 0)
 		return r;
 
@@ -366,10 +367,10 @@ evdev_cb(EV_P_ ev_io *w, int revents)
 			/* TODO: allow mapping these to other key combinations */
 			switch(ev.code) {
 			case KEY_BRIGHTNESSUP:
-				sys_backlight_brightness_mod(id->bl, +5);
+				sys_backlight_brightness_mod(id->bl, PERCENT_TO_BRIGHTNESS(+5));
 				break;
 			case KEY_BRIGHTNESSDOWN:
-				sys_backlight_brightness_mod(id->bl, -5);
+				sys_backlight_brightness_mod(id->bl, PERCENT_TO_BRIGHTNESS(-5));
 				break;
 			}
 
