@@ -6,7 +6,7 @@
 
 : ${PKGCONFIG:=pkg-config}
 : ${WARN_FLAGS_C:="-Wstrict-prototypes -Wmissing-prototypes -Wold-style-definition -Wmissing-declarations -Wbad-function-cast"}
-: ${WARN_FLAGS:="-Wall -Wundef -Wshadow -Wcast-align -Wwrite-strings ${WARN_FLAGS_C}"}
+: ${WARN_FLAGS:="-Wall -Wundef -Wshadow -Wcast-align -Wwrite-strings -Wextra -Wno-missing-field-initializers ${WARN_FLAGS_C}"}
 : ${COMMON_FLAGS:="-fsanitize=address -fsanitize=undefined -flto -Os -ggdb3 -fvar-tracking-assignments"}
 : ${CFLAGS:="${COMMON_FLAGS}"}
 : ${GIT_VER:=$(git describe --dirty=+ --always --abbrev=0)}
@@ -56,7 +56,7 @@ rule host-ccld
   command = \$host_cc \$host_ldflags -o \$out \$in
 
 rule config_h
-  command = cd \$out_dir && ../$(to_host configurator) \$cc \$cflags > ../\$out
+  command = cd \$out_dir && ../$(to_host configurator) \$cc \$cflags -Wno-unused-parameter > ../\$out
 
 rule ninja_gen
   command = $0
@@ -64,7 +64,7 @@ rule ninja_gen
 build build.ninja : ninja_gen $0
 
 build $(to_host configurator) : ccld $CONFIGURATOR_DIR/configurator.c
-  ldflags = \$host_ldflags \$host_cflags
+  ldflags = \$host_ldflags \$host_cflags -Wno-unused-result
   cc = \$host_cc
 EOF
 

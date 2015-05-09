@@ -336,6 +336,9 @@ struct input_dev {
 static void
 evdev_cb(EV_P_ ev_io *w, int revents)
 {
+	(void)revents;
+	(void)EV_A;
+
 	struct input_dev *id = (struct input_dev *)w;
 	for (;;) {
 		struct input_event ev;
@@ -464,7 +467,7 @@ int main(int argc, char **argv)
 			fprintf(stderr, "could not open dir '%s'\n", p);
 			return 2;
 		}
-		size_t name_max = pathconf(p, _PC_NAME_MAX);
+		long name_max = pathconf(p, _PC_NAME_MAX);
 		if (name_max == -1)
 			name_max = 255;
 		uint8_t d_buf[offsetof(struct dirent, d_name) + name_max + 1];
