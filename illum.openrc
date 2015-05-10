@@ -1,8 +1,5 @@
 #!/sbin/runscript
 
-depend() {
-}
-
 start() {
 	ebegin "Starting ${SVCNAME}"
 	start-stop-daemon --start --background --make-pidfile \
