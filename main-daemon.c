@@ -132,7 +132,7 @@ crat_add(struct crat a, struct crat b)
 static struct crat
 crat_sqrt(struct crat a)
 {
-	return CRAT(isqrt_umax(a.top), isqrt_umax(a.bot));
+	return CRAT(isqrt_umax(a.top * a.bot), a.bot);
 }
 
 static struct crat
