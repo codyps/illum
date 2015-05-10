@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <limits.h>
 
 /* posix */
 #include <unistd.h> /* getopt(), etc */
@@ -61,12 +62,65 @@
 
 		" -l <percent>		dim to this percent brightness\n"
 		" -t <msec>		milliseconds (integer) after last activity that the display is dimmed\n"
-		" -f <msec>		milliseconds to fade when dimming\n"
-		" -F <msec>		milliseconds to fade when brightening\n"
+		" -f <msec>		milliseconds to fade when dimming\n"		" -F <msec>		milliseconds to fade when brightening\n"
  */
 
-#define PERCENT_TO_BRIGHTNESS(x) ((x) * 10)
-#define MAX_BRIGHTNESS PERCENT_TO_BRIGHTNESS(100)
+/* Based on an example from
+ * http://www.codecodex.com/wiki/Calculate_an_integer_square_root#C
+ */
+static uintmax_t
+isqrt_umax(uintmax_t n)
+{
+	uintmax_t c = UINTMAX_C(1) << (CHAR_BIT * sizeof(c) - 1);
+	uintmax_t g = c;
+
+	for(;;) {
+		if (g*g > n)
+			g ^= c;
+		c >>= 1;
+		if (c == 0)
+			return g;
+		g |= c;
+	}
+}
+
+struct crat {
+	intmax_t  top;
+	uintmax_t bot;
+};
+#define CRAT(_top, _bot) ((struct crat){ .top = (_top), .bot = (_bot)})
+#define CRAT_FMT "(%jd/%ju)"
+#define CRAT_EXP(a) (a).top, (a).bot
+
+static struct crat
+crat_add(struct crat a, struct crat b)
+{
+	if (a.bot == b.bot)
+		return CRAT(a.top + b.top, a.bot);
+	else
+		return CRAT(a.top * b.bot + b.top * a.bot, a.bot * b.bot);
+}
+
+static struct crat
+crat_sqrt(struct crat a)
+{
+	return CRAT(isqrt_umax(a.top), isqrt_umax(a.bot));
+}
+
+static struct crat
+crat_mul(struct crat a, struct crat b)
+{
+	return CRAT(a.top * b.top, a.bot * b.bot);
+}
+
+static uintmax_t
+crat_as_num_of(struct crat a, uintmax_t b)
+{
+	if (a.bot == b)
+		return a.top;
+	else
+		return a.top * b / a.bot;
+}
 
 static const char *opts = "Vhb:";
 static
@@ -154,9 +208,6 @@ int sys_backlight_init_max_brightness(struct sys_backlight *sb)
 	if (!sb->max_brightness)
 		return -1;
 
-	if (sb->max_brightness >= UINTMAX_MAX / MAX_BRIGHTNESS)
-		return -2;
-
 	sb->max_brightness = r;
 	return 0;
 }
@@ -224,74 +275,57 @@ isqrt(uint64_t const n)
 }
 #endif
 
-static
-int sys_backlight_brightness_get(struct sys_backlight *sb)
+static struct crat
+sys_backlight_brightness_get(struct sys_backlight *sb)
 {
 	intmax_t r = attr_read_int(sb->dir_fd, "brightness");
 	if (r < 0)
-		return r;
+		return CRAT(r, 1);
 
 	if ((uintmax_t)r > sb->max_brightness)
-		return -5;
+		return CRAT(-5, 1);
 
-	pr_debug("got raw brightness %ju\n", r);
+	struct crat raw = CRAT(r, sb->max_brightness);
+	struct crat brt = raw;
 
-	double x = r;
-	double div = sb->max_brightness;
 	unsigned i;
-	for (i = 0; i < (sb->linearity - 1); i++) {
-		x = sqrt(x);
-		div = sqrt(div);
-	}
+	for (i = 0; i < (sb->linearity - 1); i++)
+		brt = crat_sqrt(brt);
 
-	double old = x;
-	x *= MAX_BRIGHTNESS;
-	x /= div;
-
-	pr_debug("calcing retreved brightness as: %f * %d / %f -> %f\n",
-			old, MAX_BRIGHTNESS, div, x);
-	return round(x);
+	pr_debug("get: raw="CRAT_FMT", linearized="CRAT_FMT"\n", CRAT_EXP(raw), CRAT_EXP(brt));
+	return brt;
 }
 
 static
-int sys_backlight_brightness_set(struct sys_backlight *sb, unsigned percent, bool non_zero)
+int sys_backlight_brightness_set(struct sys_backlight *sb, struct crat percent, struct crat old, int dir)
 {
 	/* f(percent) -> setting */
 
-	pr_debug("setting brightess to %u\n", percent);
-
-	/* XXX: overflow danger
-	 * sb->max_brightness * percent < UINTMAX_MAX
-	 * sb->max_brightness < UINTMAX_MAX / percent
-	 */
-	if (percent > MAX_BRIGHTNESS)
-		percent = MAX_BRIGHTNESS;
 
 	/* pretend that brightness goes up like an exponent */
-	unsigned div = MAX_BRIGHTNESS;
+	struct crat corrected = percent;
 	unsigned i;
-	for (i = 0; i < (sb->linearity - 1); i++) {
-		percent *= percent;
-		div *= div;
-	}
+	for (i = 0; i < (sb->linearity - 1); i++)
+		corrected = crat_mul(corrected, corrected);
 
-	uintmax_t v = sb->max_brightness * percent / div;
-	if (v == 0 && non_zero && percent)
-		v = 1;
-	pr_debug("using formula: %ju * %u / %u -> %ju\n",
-			sb->max_brightness, percent, div, v);
+	uintmax_t v = crat_as_num_of(corrected, sb->max_brightness);
+	if (v == (uintmax_t)old.top)
+		v += dir;
+
+	pr_debug("set: input="CRAT_FMT", un-linearized="CRAT_FMT"\n",
+			CRAT_EXP(percent), CRAT_EXP(corrected));
 	return attr_write_int(sb->dir_fd, "brightness", v);
 }
 
 static
-int sys_backlight_brightness_mod(struct sys_backlight *sb, int percent)
+int sys_backlight_brightness_mod(struct sys_backlight *sb, struct crat mod)
 {
-	int curr = sys_backlight_brightness_get(sb);
-	if (curr < 0)
-		return curr;
+	struct crat curr = sys_backlight_brightness_get(sb);
+	if (curr.top < 0)
+		return curr.top;
 
-	int new = clamp(curr + percent, 0, MAX_BRIGHTNESS);
-	int r = sys_backlight_brightness_set(sb, new, percent > 0);
+	struct crat new = crat_add(curr, mod);
+	int r = sys_backlight_brightness_set(sb, new, curr, (mod.top > 0) - (mod.top < 0));
 	if (r < 0)
 		return r;
 
@@ -367,10 +401,10 @@ evdev_cb(EV_P_ ev_io *w, int revents)
 			/* TODO: allow mapping these to other key combinations */
 			switch(ev.code) {
 			case KEY_BRIGHTNESSUP:
-				sys_backlight_brightness_mod(id->bl, PERCENT_TO_BRIGHTNESS(+5));
+				sys_backlight_brightness_mod(id->bl, CRAT(5, 100));
 				break;
 			case KEY_BRIGHTNESSDOWN:
-				sys_backlight_brightness_mod(id->bl, PERCENT_TO_BRIGHTNESS(-5));
+				sys_backlight_brightness_mod(id->bl, CRAT(-5, 100));
 				break;
 			}
 
@@ -413,7 +447,7 @@ int input_dev_init(struct input_dev *id, int at_fd, const char *path, struct sys
 	ev_io_init(&id->w, evdev_cb, ifd, EV_READ);
 	ev_io_start(EV_A_ &id->w);
 
-	pr_debug("I: using %s as an input dev\n", path);
+	pr_info("using %s as an input dev\n", path);
 
 	return 0;
 }
@@ -513,6 +547,9 @@ int main(int argc, char **argv)
 		fprintf(stderr, "failed to initialize sys backlight at '%s' (%d)\n", b_path, e);
 		return 2;
 	}
+
+	pr_debug("using '%s' as the backlight, max_brightness = %jd\n",
+			b_path, sb.max_brightness);
 
 	struct ev_loop *loop = EV_DEFAULT;
 
