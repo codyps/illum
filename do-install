@@ -1,10 +1,26 @@
 #!/bin/sh
 
+: ${USE_SYSTEMD=true}
+: ${USE_OPENRC=false}
+: ${PREFIX:=/usr}
+: ${SYSCONFDIR:=/etc}
+
 set -euf
 
 cd "$(dirname "$0")"
 
 install -d "$DESTDIR$PREFIX/bin"
 install illum-d "$DESTDIR$PREFIX/bin"
-install -d "$DESTDIR$PREFIX/lib/systemd/system"
-sed -e 's;@bindir@;'$PREFIX'/bin;' "illum.service" > "$DESTDIR$PREFIX/lib/systemd/system/illum.service"
+
+if $USE_SYSTEMD; then
+	install -d "$DESTDIR$PREFIX/lib/systemd/system"
+	sed -e 's;@bindir@;'$PREFIX'/bin;' \
+		"illum.service" > "$DESTDIR$PREFIX/lib/systemd/system/illum.service"
+fi
+
+if $USE_OPENRC; then
+	install -d "$DESTDIR$SYSCONFDIR/init.d"
+	sed -e 's;@bindir@;'$PREFIX'/bin;' \
+	    -e 's;@rundir@;'$PREFIX'/var/run;' \
+		"illum.openrc" > "$DESTDIR$SYSCONFDIR/init.d/illum"
+fi

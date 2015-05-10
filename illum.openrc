@@ -1,0 +1,19 @@
+#!/sbin/runscript
+
+depend() {
+}
+
+start() {
+	ebegin "Starting ${SVCNAME}"
+	start-stop-daemon --start --background --make-pidfile \
+		--pidfile @rundir@/${SVCNAME}.pid -- \
+		@bindir@/illum ${ILLUM_OPTS}
+	eend $?
+}
+
+stop() {
+	ebegin "Stopping ${SVCNAME}"
+	start-stop-daemon --stop --pidfile @rundir@/${SVCNAME}.pid \
+		--exec @bindir@/illum
+	eend ${ret}
+}

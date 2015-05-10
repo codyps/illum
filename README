@@ -18,7 +18,7 @@ then call ninja.
 
 === Use ===
 
-Run `./illum-d -b /sys/class/backlight/intel_backlight`.
+Run `./illum-d`.
 
 Currently, it attaches to all event sources that supply backlight up and
 backlight down keys (assuming they exist under /dev/input/* )
@@ -39,15 +39,22 @@ To build:
 
  - sh
  - ninja
+ - pkg-config (to find libevdev)
+ - a C compiler (gcc is tested)
 
 ==== TODO ====
 
- - autodetect backlight devices
+ - packaging
+ - support a "sticky" levels when switching between 0 and 1 (raw values) to
+   better support backlights that can turn completely off.
+ - better brightness curve (right now is based on squaring, exponential might
+   be more acurrate).
+ - automatically select "best" backlight driver rather than just "first"
+ - play nice with old-bios that also want to adjust the screen on keypresses
  - figure out the right way to enumerate input devices (rather than readdir of
    /dev/input)
  - Hotplug new input devices
  - Better key combo support
- - Exponential dimming curve
  - dimming based on "activity"
     - detects activity
     - obeys inhibits (time limited and lifetime limited)
