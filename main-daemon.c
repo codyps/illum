@@ -71,7 +71,7 @@
 static uintmax_t
 isqrt_umax(uintmax_t n)
 {
-	uintmax_t c = UINTMAX_C(1) << (CHAR_BIT * sizeof(c) - 1);
+	uintmax_t c = UINTMAX_C(1) << (CHAR_BIT * sizeof(c) / 2 - 1);
 	uintmax_t g = c;
 
 	for(;;) {
@@ -321,8 +321,10 @@ static
 int sys_backlight_brightness_mod(struct sys_backlight *sb, struct crat mod)
 {
 	struct crat curr = sys_backlight_brightness_get(sb);
-	if (curr.top < 0)
+	if (curr.top < 0) {
+		pr_debug("mod: error getting brightness: %jd\n", curr.top);
 		return curr.top;
+	}
 
 	struct crat new = crat_add(curr, mod);
 	int r = sys_backlight_brightness_set(sb, new, curr, (mod.top > 0) - (mod.top < 0));
