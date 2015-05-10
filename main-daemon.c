@@ -84,6 +84,34 @@ isqrt_umax(uintmax_t n)
 	}
 }
 
+/*
+ * min()/max()/clamp() macros that also do
+ * strict type-checking.. See the
+ * "unnecessary" pointer comparison.
+ */
+#define min(x, y) ({				\
+	__typeof__(x) _min1 = (x);			\
+	__typeof__(y) _min2 = (y);			\
+	(void) (&_min1 == &_min2);		\
+	_min1 < _min2 ? _min1 : _min2; })
+
+#define max(x, y) ({				\
+	__typeof__(x) _max1 = (x);			\
+	__typeof__(y) _max2 = (y);			\
+	(void) (&_max1 == &_max2);		\
+	_max1 > _max2 ? _max1 : _max2; })
+
+/**
+ * clamp - return a value clamped to a given range with strict typechecking
+ * @val: current value
+ * @lo: lowest allowable value
+ * @hi: highest allowable value
+ *
+ * This macro does strict typechecking of lo/hi to make sure they are of the
+ * same type as val.  See the unnecessary pointer comparisons.
+ */
+#define clamp(val, lo, hi) min((__typeof__(val))max(val, lo), hi)
+
 struct crat {
 	intmax_t  top;
 	uintmax_t bot;
@@ -120,6 +148,18 @@ crat_as_num_of(struct crat a, uintmax_t b)
 		return a.top;
 	else
 		return a.top * b / a.bot;
+}
+
+static struct crat
+crat_clamp_num(struct crat a, intmax_t low, intmax_t high)
+{
+	return CRAT(clamp(a.top, low, high), a.bot);
+}
+
+static struct crat
+crat_clamp_unsigned_norm(struct crat a)
+{
+	return crat_clamp_num(a, 0, a.bot);
 }
 
 static const char *opts = "Vhl:b:";
@@ -228,34 +268,6 @@ int sys_backlight_init_max_brightness(struct sys_backlight *sb)
 }							\
 )
 
-/*
- * min()/max()/clamp() macros that also do
- * strict type-checking.. See the
- * "unnecessary" pointer comparison.
- */
-#define min(x, y) ({				\
-	__typeof__(x) _min1 = (x);			\
-	__typeof__(y) _min2 = (y);			\
-	(void) (&_min1 == &_min2);		\
-	_min1 < _min2 ? _min1 : _min2; })
-
-#define max(x, y) ({				\
-	__typeof__(x) _max1 = (x);			\
-	__typeof__(y) _max2 = (y);			\
-	(void) (&_max1 == &_max2);		\
-	_max1 > _max2 ? _max1 : _max2; })
-
-/**
- * clamp - return a value clamped to a given range with strict typechecking
- * @val: current value
- * @lo: lowest allowable value
- * @hi: highest allowable value
- *
- * This macro does strict typechecking of lo/hi to make sure they are of the
- * same type as val.  See the unnecessary pointer comparisons.
- */
-#define clamp(val, lo, hi) min((__typeof__(val))max(val, lo), hi)
-
 #if 0
 static uint32_t
 isqrt(uint64_t const n)
@@ -326,7 +338,7 @@ int sys_backlight_brightness_mod(struct sys_backlight *sb, struct crat mod)
 		return curr.top;
 	}
 
-	struct crat new = crat_add(curr, mod);
+	struct crat new = crat_clamp_unsigned_norm(crat_add(curr, mod));
 	int r = sys_backlight_brightness_set(sb, new, curr, (mod.top > 0) - (mod.top < 0));
 	if (r < 0)
 		return r;
