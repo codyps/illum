@@ -122,7 +122,7 @@ crat_as_num_of(struct crat a, uintmax_t b)
 		return a.top * b / a.bot;
 }
 
-static const char *opts = "Vhb:";
+static const char *opts = "Vhl:b:";
 static
 void usage_(const char *pn)
 {
@@ -475,6 +475,7 @@ int main(int argc, char **argv)
 			}
 
 			l = x;
+			break;
 		}
 		case 'V':
 			puts("illum-" stringify(CFG_GIT_VERSION));
