@@ -4,6 +4,7 @@
 : ${USE_OPENRC=false}
 : ${PREFIX:=/usr}
 : ${SYSCONFDIR:=/etc}
+: ${RUNSTATEDIR:=/var/run}
 
 set -euf
 
@@ -21,7 +22,7 @@ fi
 if $USE_OPENRC; then
 	install -d "$DESTDIR$SYSCONFDIR/init.d"
 	sed -e 's;@bindir@;'$PREFIX'/bin;' \
-	    -e 's;@rundir@;'$PREFIX'/var/run;' \
+	    -e 's;@runstatedir@;'$RUNSTATEDIR';' \
 		"illum.openrc" > "$DESTDIR$SYSCONFDIR/init.d/illum"
 	chmod +x "$DESTDIR$SYSCONFDIR/init.d/illum"
 fi
