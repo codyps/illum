@@ -10,7 +10,7 @@
 : ${GIT_VER:=$(git describe --dirty=+ --always --abbrev=0)}
 
 LIBS=libevdev
-# FIXME: libevdev has bugs in it's headers and as a result requires
+# FIXME: libev has bugs in it's headers and as a result requires
 # no-strict-aliasing
 LIB_CFLAGS="$(${PKGCONFIG} --cflags ${LIBS}) -fno-strict-aliasing -Iccan"
 LIB_LDFLAGS="$(${PKGCONFIG} --libs ${LIBS}) -lev -lm"
