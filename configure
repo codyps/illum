@@ -9,17 +9,6 @@
 : ${WARN_FLAGS:="-Wall -Wundef -Wshadow -Wcast-align -Wwrite-strings ${WARN_FLAGS_C}"}
 : ${GIT_VER:=$(git describe --dirty=+ --always --abbrev=0)}
 
-# Given a series of flags for CC, echo (space seperated) the ones that the
-# compiler is happy with.
-cflag_x () {
-	for i in "$@"; do
-		${CC} ${CFLAGS:-} -c -x c "$i" /dev/null -o /dev/null >/dev/null 2>&1 && printf "%s " "$i" || true
-	done
-}
-
-COMMON_FLAGS="$(cflag_x -fsanitize=address -flto -fsanitize=undefined -fvar-tracking-assignments)"
-: ${CFLAGS:="${COMMON_FLAGS} -ggdb3 -Os"}
-
 LIBS=libevdev
 # FIXME: libevdev has bugs in it's headers and as a result requires
 # no-strict-aliasing
@@ -28,6 +17,20 @@ LIB_LDFLAGS="$(${PKGCONFIG} --libs ${LIBS}) -lev -lm"
 
 CFLAGS="${WARN_FLAGS} -std=c99 -D_GNU_SOURCE ${CFLAGS}"
 : ${HOST_CFLAGS:=${CFLAGS}}
+
+# Given a series of flags for CC, echo (space seperated) the ones that the
+# compiler is happy with.
+cflag_x () {
+	local cc=$(eval printf "%s" "\${$1CC}")
+	local cflags=$(eval printf "%s" "\${$1CFLAGS:-}")
+	for i in "$@"; do
+		$cc $cflags -c -x c "$i" /dev/null -o /dev/null >/dev/null 2>&1 && printf "%s " "$i" || true
+	done
+}
+
+COMMON_FLAGS="$(cflag_x "" -fsanitize=address -flto -fsanitize=undefined -fvar-tracking-assignments)"
+: ${CFLAGS:="${COMMON_FLAGS} -ggdb3 -Os"}
+
 CFLAGS="-DCFG_GIT_VERSION=${GIT_VER} ${LIB_CFLAGS} ${CFLAGS}"
 
 : ${LDFLAGS:="${COMMON_FLAGS}"}
