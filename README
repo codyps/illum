@@ -3,6 +3,23 @@
 Illum is a backlight manager for linux. It changes the screen backlight level
 based on keypresses (brightness up and brightness down).
 
+=== Instal (via distro) ===
+
+Arch Linux:
+
+   https://aur4.archlinux.org/packages/illum-git/
+   https://aur.archlinux.org/packages/illum-git/
+
+   pacaur -S illum-git
+
+Gentoo:
+
+   https://github.com/jmesmon/overlay
+   https://github.com/jmesmon/overlay/blob/master/sys-apps/illum/illum-9999.ebuild
+
+   layman -a jmesmon
+   ACCEPT_KEYWORDS="**" emerge illum-git
+
 === build ===
 
    ./build
