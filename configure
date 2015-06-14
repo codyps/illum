@@ -1,4 +1,5 @@
 #! /bin/sh
+# ex: sts=8 sw=8 ts=8 noet
 
 : ${CROSS_COMPILER:=}
 : ${HOST_CC:=cc}
@@ -20,9 +21,11 @@ CFLAGS="${WARN_FLAGS} -std=c99 -D_GNU_SOURCE ${CFLAGS}"
 
 # Given a series of flags for CC, echo (space seperated) the ones that the
 # compiler is happy with.
+# XXX: Note that this does mean flags with spaces in them won't work.
 cflag_x () {
 	local cc=$(eval printf "%s" "\${$1CC}")
 	local cflags=$(eval printf "%s" "\${$1CFLAGS:-}")
+	shift
 	for i in "$@"; do
 		$cc $cflags -c -x c "$i" /dev/null -o /dev/null >/dev/null 2>&1 && printf "%s " "$i" || true
 	done
@@ -34,28 +37,19 @@ COMMON_FLAGS="$(cflag_x "" -fsanitize=address -flto -fsanitize=undefined -fvar-t
 CFLAGS="-DCFG_GIT_VERSION=${GIT_VER} ${LIB_CFLAGS} ${CFLAGS}"
 
 : ${LDFLAGS:="${COMMON_FLAGS}"}
-: ${HOST_LDFLAGS:=${LDFLAGS}}
 LDFLAGS="${LIB_LDFLAGS} ${LDFLAGS}"
 
-CONFIGURATOR_DIR="./ccan/tools/configurator"
+CONFIG_H_GEN=./config_h_gen
+
+CONFIGS=""
 
 exec >build.ninja
 
-
-to_host () {
-	for i in "$@"; do
-		printf "%s " ".host/$i"
-	done
-}
-
 cat <<EOF
 cc = $CC
-host_cc = $HOST_CC
 objcopy = $OBJCOPY
-host_cflags = $HOST_CFLAGS
 cflags = $CFLAGS
 ldflags = $LDFLAGS
-host_ldflags = $HOST_LDFLAGS
 
 rule cc
   command = \$cc \$cflags -MMD -MF \$out.d  -c \$in -o \$out
@@ -64,21 +58,18 @@ rule cc
 rule ccld
   command = \$cc \$ldflags -o \$out \$in
 
-rule host-ccld
-  command = \$host_cc \$host_ldflags -o \$out \$in
+rule config_h_frag
+  command = ${CONFIG_H_GEN} frag \$in \$cc \$cflags \$ldflags > \$out
 
-rule config_h
-  command = cd \$out_dir && ../$(to_host configurator) \$cc \$cflags -Wno-unused-parameter > ../\$out
+rule combine
+  command = cat \$in > \$out
 
 rule ninja_gen
   command = $0
   generator = yes
-build build.ninja : ninja_gen $0
-
-build $(to_host configurator) : ccld $CONFIGURATOR_DIR/configurator.c
-  ldflags = \$host_ldflags \$host_cflags -Wno-unused-result
-  cc = \$host_cc
 EOF
+
+CONFIGURE_DEPS="$0"
 
 to_out () {
   for i in "$@"; do
@@ -96,6 +87,18 @@ _ev () {
 	eval echo "\${$1}"
 }
 
+config () {
+	local configs=""
+	for i in config_h/*.c; do
+		local name=".config.h-$(${CONFIG_H_GEN} name "$i")-frag"
+		echo "build $name : config_h_frag $i"
+		configs="$configs $name"
+		CONFIGURE_DEPS="$CONFIGURE_DEPS $i"
+	done
+
+	echo "build config.h : combine config_h/prefix.h $configs config_h/suffix.h"
+}
+
 bin () {
 	out="$1"
 	shift
@@ -107,15 +110,15 @@ bin () {
 	done
 
 	cat <<EOF
-build $(to_out config.h) : config_h | $(to_host configurator)
-  out_dir = .build-$out
 build $out : ccld $(to_obj "$@")
 EOF
 	BINS="$BINS $out"
 }
 BINS=""
 
+config
 bin illum-d   main-daemon.c ccan/ccan/pr_log/pr_log.c
 bin illum-ctl main-ctl.c
 
+echo build build.ninja : ninja_gen $CONFIGURE_DEPS
 echo default ${BINS}

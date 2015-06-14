@@ -1,0 +1,21 @@
+#! /bin/sh
+set -euf -o pipefail
+
+if [ $# -lt 3 ]; then
+	echo "Usage: $0 <input-file> <success-text> <failure-text> <cc> <cflags>..."
+fi
+
+input=$1
+succ_text=$2
+fail_text=$3
+shift 3
+
+tmp=
+trap 'if [ -n "$tmp" ] && [ -e "$tmp" ]; then rm -rf "$tmp"; fi' EXIT TERM INT QUIT
+tmp=$(mktemp -d)
+
+if "$@" "$input" -o /dev/null; then
+	echo "$succ_text"
+else
+	echo "$fail_text"
+fi

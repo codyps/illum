@@ -1,3 +1,4 @@
+.config.h*
 .ninja_*
 build.ninja
 .host*
@@ -5,3 +6,6 @@ build.ninja
 
 illum-d
 illum-ctl
+
+# FIXME: remove once config.h is shoved in one of the build subdirs
+config.h
