@@ -93,11 +93,12 @@ config () {
 		local name=".config.h-$(${CONFIG_H_GEN} name "$i")-frag"
 		echo "build $name : config_h_frag $i"
 		configs="$configs $name"
-		CONFIGURE_DEPS="$CONFIGURE_DEPS $i"
 	done
 
 	echo "build config.h : combine config_h/prefix.h $configs config_h/suffix.h"
 }
+# If any files in config_h change, we need to re-generate build.ninja
+CONFIGURE_DEPS="$CONFIGURE_DEPS config_h/ ${CONFIG_H_GEN}"
 
 bin () {
 	out="$1"
