@@ -34,7 +34,7 @@ cflag_x () {
 COMMON_FLAGS="$(cflag_x "" -fsanitize=address -flto -fsanitize=undefined -fvar-tracking-assignments)"
 : ${CFLAGS:="${COMMON_FLAGS} -ggdb3 -Os"}
 
-CFLAGS="-DCFG_GIT_VERSION=${GIT_VER} ${LIB_CFLAGS} ${CFLAGS}"
+CFLAGS="-DCFG_GIT_VERSION=${GIT_VER} -I. ${LIB_CFLAGS} ${CFLAGS}"
 
 : ${LDFLAGS:="${COMMON_FLAGS}"}
 LDFLAGS="${LIB_LDFLAGS} ${LDFLAGS}"
@@ -91,7 +91,7 @@ config () {
 	local configs=""
 	for i in config_h/*.c; do
 		local name=".config.h-$(${CONFIG_H_GEN} name "$i")-frag"
-		echo "build $name : config_h_frag $i"
+		echo "build $name : config_h_frag $i | ./if_compiles"
 		configs="$configs $name"
 	done
 
@@ -106,7 +106,7 @@ bin () {
 	out_var="${out/./_}"
 
 	for s in "$@"; do
-		echo "build $(to_obj "$s"): cc $s | $(to_out config.h)"
+		echo "build $(to_obj "$s"): cc $s | config.h"
 		echo "  cflags = \$cflags -I.build-$out"
 	done
 
