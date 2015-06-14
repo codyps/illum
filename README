@@ -11,6 +11,8 @@ Arch Linux:
    https://aur.archlinux.org/packages/illum-git/
 
    pacaur -S illum-git
+   systemctl enable illum.service
+   systemctl start illum.service
 
 Gentoo:
 
@@ -19,6 +21,8 @@ Gentoo:
 
    layman -a jmesmon
    ACCEPT_KEYWORDS="**" emerge illum-git
+   rc-upadte add illum default
+   /etc/init.d/illum start
 
 === build ===
 
