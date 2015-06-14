@@ -7,18 +7,30 @@
 : ${PKGCONFIG:=pkg-config}
 : ${WARN_FLAGS_C:="-Wstrict-prototypes -Wmissing-prototypes -Wold-style-definition -Wmissing-declarations -Wbad-function-cast"}
 : ${WARN_FLAGS:="-Wall -Wundef -Wshadow -Wcast-align -Wwrite-strings -Wextra -Wno-missing-field-initializers ${WARN_FLAGS_C}"}
-: ${COMMON_FLAGS:="-fsanitize=address -fsanitize=undefined -flto -Os -ggdb3 -fvar-tracking-assignments"}
-: ${CFLAGS:="${COMMON_FLAGS}"}
 : ${GIT_VER:=$(git describe --dirty=+ --always --abbrev=0)}
 
 LIBS=libevdev
-# FIXME: libevdev has bugs in it's headers and as a result requires
+# FIXME: libev has bugs in it's headers and as a result requires
 # no-strict-aliasing
 LIB_CFLAGS="$(${PKGCONFIG} --cflags ${LIBS}) -fno-strict-aliasing -Iccan"
 LIB_LDFLAGS="$(${PKGCONFIG} --libs ${LIBS}) -lev"
 
 CFLAGS="${WARN_FLAGS} -std=c99 -D_GNU_SOURCE ${CFLAGS}"
 : ${HOST_CFLAGS:=${CFLAGS}}
+
+# Given a series of flags for CC, echo (space seperated) the ones that the
+# compiler is happy with.
+cflag_x () {
+	local cc=$(eval printf "%s" "\${$1CC}")
+	local cflags=$(eval printf "%s" "\${$1CFLAGS:-}")
+	for i in "$@"; do
+		$cc $cflags -c -x c "$i" /dev/null -o /dev/null >/dev/null 2>&1 && printf "%s " "$i" || true
+	done
+}
+
+COMMON_FLAGS="$(cflag_x "" -fsanitize=address -flto -fsanitize=undefined -fvar-tracking-assignments)"
+: ${CFLAGS:="${COMMON_FLAGS} -ggdb3 -Os"}
+
 CFLAGS="-DCFG_GIT_VERSION=${GIT_VER} ${LIB_CFLAGS} ${CFLAGS}"
 
 : ${LDFLAGS:="${COMMON_FLAGS}"}
