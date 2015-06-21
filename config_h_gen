@@ -25,7 +25,7 @@ case "$base" in
 #warning $(get_msg WARN)" "/* $base build failed (as expected) */" "$@"
 		;;
 	note-*.c)
-		"$D"/if_compiles "$input" "/* NOTE: $base: $(get_msg SUCCESS) */" "/* NOTE: $base $(get_msg FAILED) */" "$@"
+		"$D"/if_compiles "$input" "/* NOTE: $base: $(get_msg SUCCEEDED) */" "/* NOTE: $base $(get_msg FAILED) */" "$@"
 		;;
 	*)
 		>&2 echo "Unrecognized filename pattern '$base'"
