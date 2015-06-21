@@ -8,6 +8,7 @@
 #include <string.h>
 #include <math.h>
 #include <limits.h>
+#include <stdalign.h>
 
 /* posix */
 #include <unistd.h> /* getopt(), etc */
@@ -520,6 +521,7 @@ int main(int argc, char **argv)
 		long name_max = pathconf(p, _PC_NAME_MAX);
 		if (name_max == -1)
 			name_max = 255;
+		alignas(struct dirent)
 		uint8_t d_buf[offsetof(struct dirent, d_name) + name_max + 1];
 		struct dirent *res;
 
@@ -583,6 +585,7 @@ int main(int argc, char **argv)
 	if (name_max == -1)
 		name_max = 255;
 	size_t len = offsetof(struct dirent, d_name) + name_max + 1;
+	alignas(struct dirent)
 	uint8_t entry_buf[len];
 	struct dirent  *res;
 	for (;;) {

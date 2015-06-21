@@ -9,7 +9,7 @@ set -eu -o pipefail
 
 : ${PKGCONFIG:=pkg-config}
 : ${WARN_FLAGS_C:="-Wstrict-prototypes -Wmissing-prototypes -Wold-style-definition -Wmissing-declarations -Wbad-function-cast"}
-: ${WARN_FLAGS:="-Wall -Wundef -Wshadow -Wcast-align -Wwrite-strings -Wextra -Wno-missing-field-initializers ${WARN_FLAGS_C}"}
+: ${WARN_FLAGS:="-Wall -Wundef -Wshadow -Wcast-align -Wwrite-strings -Wextra -Werror=attributes -Wno-missing-field-initializers ${WARN_FLAGS_C}"}
 : ${GIT_VER:=$(git describe --dirty=+ --always --abbrev=0)}
 
 LIBS=libevdev
@@ -18,7 +18,7 @@ LIBS=libevdev
 LIB_CFLAGS="$(${PKGCONFIG} --cflags ${LIBS}) -fno-strict-aliasing -Iccan"
 LIB_LDFLAGS="$(${PKGCONFIG} --libs ${LIBS}) -lev"
 
-CFLAGS="${WARN_FLAGS} -std=c99 -D_GNU_SOURCE ${CFLAGS:-}"
+CFLAGS="${WARN_FLAGS} -std=c11 -D_GNU_SOURCE ${CFLAGS:-}"
 : ${HOST_CFLAGS:=${CFLAGS}}
 
 # Given a series of flags for CC, echo (space seperated) the ones that the
