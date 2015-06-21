@@ -6,6 +6,10 @@ if [ $# -lt 2 ]; then
 	exit 1
 fi
 
+get_msg() {
+	grep '^/\* '"$1"':' <"$input" | sed -e 's;/\* '"$1"': \(.*\) \*/;"\1";'
+}
+
 D=$(dirname $0)
 input=$1
 shift 1
@@ -17,9 +21,11 @@ case "$base" in
 		"$D"/if_compiles "$input" "#define $define 1" "#define $define 0" "$@"
 		;;
 	warn-on-failure-*.c)
-		warn_msg=$(grep '^/\* WARN:' <"$input" | sed -e 's;/\* WARN: \(.*\) \*/;"\1";')
 		"$D"/if_compiles "$input" "/* $base build succesfully, unexpectedly */
-#warning $warn_msg" "/* $base build failed (as expected) */" "$@"
+#warning $(get_msg WARN)" "/* $base build failed (as expected) */" "$@"
+		;;
+	note-*.c)
+		"$D"/if_compiles "$input" "/* NOTE: $base: $(get_msg SUCCESS) */" "/* NOTE: $base $(get_msg FAILED) */" "$@"
 		;;
 	*)
 		>&2 echo "Unrecognized filename pattern '$base'"
