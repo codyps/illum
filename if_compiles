@@ -2,7 +2,7 @@
 set -euf -o pipefail
 
 if [ $# -lt 4 ]; then
-	echo "Usage: $0 <input-file> <success-text> <failure-text> <cc> <cflags>..."
+	>&2 echo "Usage: $0 <input-file> <success-text> <failure-text> <cc> <cflags>..."
 	exit 1
 fi
 
@@ -15,8 +15,16 @@ tmp=
 trap 'if [ -n "$tmp" ] && [ -e "$tmp" ]; then rm -rf "$tmp"; fi' EXIT TERM INT QUIT
 tmp=$(mktemp -d)
 
-if "$@" "$input" -o /dev/null; then
-	echo "$succ_text"
+if [ -n "${IF_COMPILES_DEBUG:-}" ]; then
+	if "$@" "$input" -o /dev/null; then
+		echo "$succ_text"
+	else
+		echo "$fail_text"
+	fi
 else
-	echo "$fail_text"
+	if "$@" "$input" -o /dev/null 2>/dev/null; then
+		echo "$succ_text"
+	else
+		echo "$fail_text"
+	fi
 fi

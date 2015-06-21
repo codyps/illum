@@ -2,33 +2,24 @@
 set -euf -o pipefail
 
 if [ $# -lt 2 ]; then
-	echo "Usage: $0 <action>"
-	echo "       $0 frag <input-file> <cc> <cflags>..."
-	echo "       $0 name <input-file>"
+	echo "Usage: $0 <input-file> <cc> <cflags>..."
 	exit 1
 fi
 
 D=$(dirname $0)
-action=$1
-input=$2
-shift 2
+input=$1
+shift 1
 base=$(basename "$input")
 case "$base" in
 	compile-*.c)
 		define=${base%%.c}
 		define=${define##compile-}
-		case "$action" in
-			frag)
-				"$D"/if_compiles "$input" "#define $define 1" "#define $define 0" "$@"
-				;;
-			name)
-				echo "$define"
-				;;
-			*)
-				>&2 echo "Unrecognized action '$action'"
-				exit 1
-				;;
-		esac
+		"$D"/if_compiles "$input" "#define $define 1" "#define $define 0" "$@"
+		;;
+	warn-on-failure-*.c)
+		warn_msg=$(grep '^/\* WARN:' <"$input" | sed -e 's;/\* WARN: \(.*\) \*/;"\1";')
+		"$D"/if_compiles "$input" "/* $base build succesfully, unexpectedly */
+#warning $warn_msg" "/* $base build failed (as expected) */" "$@"
 		;;
 	*)
 		>&2 echo "Unrecognized filename pattern '$base'"

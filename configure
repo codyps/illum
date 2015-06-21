@@ -61,7 +61,7 @@ rule ccld
   command = \$cc \$ldflags -o \$out \$in
 
 rule config_h_frag
-  command = ${CONFIG_H_GEN} frag \$in \$cc \$cflags \$ldflags > \$out
+  command = ${CONFIG_H_GEN} \$in \$cc \$cflags \$ldflags > \$out
 
 rule combine
   command = cat \$in > \$out
@@ -92,8 +92,8 @@ _ev () {
 config () {
 	local configs=""
 	for i in config_h/*.c; do
-		local name=".config.h-$(${CONFIG_H_GEN} name "$i")-frag"
-		echo "build $name : config_h_frag $i | ./if_compiles"
+		local name=".config.h-$i-frag"
+		echo "build $name : config_h_frag $i | ./if_compiles ${CONFIG_H_GEN}"
 		configs="$configs $name"
 	done
 
