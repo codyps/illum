@@ -18,10 +18,8 @@ Requires:       libevdev
 
 %description
 
-
 %prep
 %setup -qn %{name}-%{commit}
-
 
 %build
 ./build

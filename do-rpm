@@ -1,0 +1,20 @@
+#! /bin/sh
+pn=illum
+
+set -euf -o pipefail
+
+if [ $# -eq 1 ]; then
+	tree_ish="$1"
+else
+	tree_ish=HEAD
+fi
+
+cd "$(dirname $0)"
+pv=$(git describe "$tree_ish")
+ph=$(git rev-parse "$tree_ish")
+dist=$(date +%s)
+
+# TODO: generate tarballs...
+
+# Issue: these defines can't override the ones in the file
+rpmbuild -Dcommit="$ph" -Dver="$pv" -Ddist="$dist" -ba "$pn".spec
