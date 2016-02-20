@@ -5,6 +5,7 @@
 : ${PREFIX:=/usr}
 : ${SYSCONFDIR:=/etc}
 : ${RUNSTATEDIR:=/var/run}
+: ${systemd_unitdir:=${PREFIX}/lib/systemd}
 
 set -euf
 
@@ -14,9 +15,9 @@ install -d "$DESTDIR$PREFIX/bin"
 install illum-d "$DESTDIR$PREFIX/bin"
 
 if $USE_SYSTEMD; then
-	install -d "$DESTDIR$PREFIX/lib/systemd/system"
+	install -d "$DESTDIR${systemd_unitdir}/system"
 	sed -e 's;@bindir@;'$PREFIX'/bin;' \
-		"illum.service" > "$DESTDIR$PREFIX/lib/systemd/system/illum.service"
+		"illum.service" > "$DESTDIR${systemd_unitdir}/system/illum.service"
 fi
 
 if $USE_OPENRC; then
