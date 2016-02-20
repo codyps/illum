@@ -1,5 +1,6 @@
+## config_h_gen: cccafba, see https://github.com/jmesmon/cninja.git
 #! /bin/sh
-set -euf -o pipefail
+set -euf
 
 if [ $# -lt 2 ]; then
 	echo "Usage: $0 <input-file> <cc> <cflags>..."
@@ -20,7 +21,7 @@ case "$base" in
 		define=${define##compile-}
 		"$D"/if_compiles "$input" "#define $define 1" "#define $define 0" "$@"
 		;;
-	warn-on-failure-*.c)
+	warn-if-compiles-*.c)
 		"$D"/if_compiles "$input" "/* $base build succesfully, unexpectedly */
 #warning $(get_msg WARN)" "/* $base build failed (as expected) */" "$@"
 		;;
