@@ -1,0 +1,8 @@
+#! /bin/sh
+
+# This is a quick hack for systems that don't have facilities to
+# really log output properly.
+
+exec 1> >(logger -s -t "$1") 2>&1
+shift
+exec "$@"

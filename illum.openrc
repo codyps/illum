@@ -1,16 +1,19 @@
 #!/sbin/runscript
 
+depend() {
+	use logger
+}
+
 start() {
 	ebegin "Starting ${SVCNAME}"
 	start-stop-daemon --start --background --make-pidfile \
-		--pidfile @runstatedir@/${SVCNAME}.pid -- \
-		@bindir@/illum-d ${ILLUM_OPTS}
+		--pidfile '@runstatedir@'/${SVCNAME}.pid -- \
+		'@libexec@/illum/with-syslog' 'illum' '@bindir@/illum-d' ${ILLUM_OPTS}
 	eend $?
 }
 
 stop() {
 	ebegin "Stopping ${SVCNAME}"
-	start-stop-daemon --stop --pidfile @runstatedir@/${SVCNAME}.pid \
-		--exec @bindir@/illum-d
-	eend ${ret}
+	start-stop-daemon --stop --pidfile '@runstatedir@'/${SVCNAME}.pid \
+	eend $?
 }

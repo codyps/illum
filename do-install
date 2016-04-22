@@ -6,6 +6,7 @@
 : ${SYSCONFDIR:=/etc}
 : ${RUNSTATEDIR:=/var/run}
 : ${systemd_unitdir:=${PREFIX}/lib/systemd}
+: ${LIBEXEC:=${PREFIX}/libexec}
 
 set -euf
 
@@ -24,6 +25,10 @@ if $USE_OPENRC; then
 	install -d "$DESTDIR$SYSCONFDIR/init.d"
 	sed -e 's;@bindir@;'$PREFIX'/bin;' \
 	    -e 's;@runstatedir@;'$RUNSTATEDIR';' \
+	    -e 's;@libexec@;'$LIBEXEC';' \
 		"illum.openrc" > "$DESTDIR$SYSCONFDIR/init.d/illum"
 	chmod +x "$DESTDIR$SYSCONFDIR/init.d/illum"
+
+	mkdir -p "$DESTDIR$LIBEXEC/illum"
+	install with-syslog "$DESTDIR$LIBEXEC/illum"
 fi
