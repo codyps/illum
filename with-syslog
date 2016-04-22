@@ -1,4 +1,4 @@
-#! /bin/sh
+#! /bin/bash
 
 # This is a quick hack for systems that don't have facilities to
 # really log output properly.
