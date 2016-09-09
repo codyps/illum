@@ -521,20 +521,20 @@ int main(int argc, char **argv)
 		long name_max = pathconf(p, _PC_NAME_MAX);
 		if (name_max == -1)
 			name_max = 255;
-		alignas(struct dirent)
-		uint8_t d_buf[offsetof(struct dirent, d_name) + name_max + 1];
 		struct dirent *res;
 
 		for (;;) {
-			e = readdir_r(d, (struct dirent *)d_buf, &res);
-			if (e) {
-				fprintf(stderr, "failed to read an entry from '%s'\n", p);
-				return 2;
-			}
-
+			errno = 0;
+			res = readdir(d);
 			if (!res) {
-				fprintf(stderr, "no backlight entries found in '%s'\n", p);
-				return 2;
+				if (errno) {
+					fprintf(stderr, "failed to read an entry from '%s': %s\n", p,
+							strerror(errno));
+					return 2;
+				} else {
+					fprintf(stderr, "no backlight entries found in '%s'\n", p);
+					return 2;
+				}
 			}
 
 			if (*res->d_name == '.')
@@ -581,23 +581,17 @@ int main(int argc, char **argv)
 				i_path, strerror(errno));
 		return 1;
 	}
-	ssize_t name_max = pathconf(i_path, _PC_NAME_MAX);
-	if (name_max == -1)
-		name_max = 255;
-	size_t len = offsetof(struct dirent, d_name) + name_max + 1;
-	alignas(struct dirent)
-	uint8_t entry_buf[len];
-	struct dirent  *res;
 	for (;;) {
-		int r = readdir_r(idir, (struct dirent *)entry_buf, &res);
-		if (r) {
-			fprintf(stderr, "readdir_r failure: %s\n",
-					strerror(errno));
-			return 1;
+		errno = 0;
+		struct dirent *res = readdir(idir);
+		if (!res) {
+			if (errno) {
+				fprintf(stderr, "readdir_r failure: %s\n",
+						strerror(errno));
+				return 1;
+			} else
+				break;
 		}
-
-		if (!res)
-			break;
 
 		struct input_dev *id = malloc(sizeof(*id));
 		e = input_dev_init(id, dirfd(idir), res->d_name, &sb EV_A__);
