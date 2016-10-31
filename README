@@ -7,7 +7,6 @@ based on keypresses (brightness up and brightness down).
 
 Arch Linux:
 
-   https://aur4.archlinux.org/packages/illum-git/
    https://aur.archlinux.org/packages/illum-git/
 
    pacaur -S illum-git
@@ -65,7 +64,6 @@ To build:
 
 ==== TODO ====
 
- - packaging
  - support a "sticky" levels when switching between 0 and 1 (raw values) to
    better support backlights that can turn completely off.
  - better brightness curve (right now is based on squaring, exponential might
@@ -75,7 +73,8 @@ To build:
  - figure out the right way to enumerate input devices (rather than readdir of
    /dev/input)
  - Hotplug new input devices
- - Better key combo support
+ - support using key combinations to adjust at different rates/different ways.
+ - add a client control program/library to allow syncronized control from different sources.
  - dimming based on "activity"
     - detects activity
     - obeys inhibits (time limited and lifetime limited)
