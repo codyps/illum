@@ -246,7 +246,7 @@ int sys_backlight_init_max_brightness(struct sys_backlight *sb)
 	if (r < 0)
 		return r;
 
-	if (!sb->max_brightness)
+	if (!r)
 		return -1;
 
 	sb->max_brightness = r;
