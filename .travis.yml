@@ -1,4 +1,8 @@
 language: c
+addons:
+        apt:
+                packages:
+                        - ninja-build
 compiler:
         - clang
         - gcc
