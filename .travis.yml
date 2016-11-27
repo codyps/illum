@@ -3,6 +3,7 @@ addons:
         apt:
                 packages:
                         - ninja-build
+                        - libevdev-dev
 compiler:
         - clang
         - gcc
