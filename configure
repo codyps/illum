@@ -1,6 +1,6 @@
 #! /bin/sh
 # ex: sts=8 sw=8 ts=8 noet
-set -eu -o pipefail
+set -eu
 
 PKGCONFIG_LIBS=libevdev
 # FIXME: libev has bugs in it's headers and as a result requires
