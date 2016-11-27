@@ -1,5 +1,6 @@
 ## build: 988f773, see https://github.com/jmesmon/cninja.git
 #! /bin/sh
+set -euf
 cd $(dirname $0)
 ./configure
 ninja=ninja
