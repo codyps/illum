@@ -61,6 +61,10 @@ To build:
  - ninja
  - pkg-config (to find libevdev)
  - a C compiler (gcc is tested)
+ 
+=== License ===
+
+GNU Affero General Public License version 3 (AGPL-3) as published by GNU: https://www.gnu.org/licenses/agpl-3.0.en.html
 
 ==== TODO ====
 
