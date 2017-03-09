@@ -25,10 +25,12 @@ Gentoo:
 
 === build ===
 
+   git submodule update --init
    ./build
 
 OR
 
+   git submodule update --init
    ./configure
    ninja
 
