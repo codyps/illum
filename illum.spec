@@ -5,7 +5,7 @@ Summary:        A daemon that responds to brightness keys by changing the backli
 
 License:        AGPLv3
 URL:            https://github.com/jmesmon/illum
-%global commit 658765ba3df3c27a3f4df5728605d105e170a264
+%global commit 35f56ca1af82480029ba2adaba44959939b5d162
 %global ccan_commit 3ed55657aa0208046cdb5c57cc9dbb2e6300a97b
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global owner jmesmon
