@@ -1,12 +1,12 @@
 Name:           illum
-Version:        0.3
-Release:        1%{?dist}
+Version:        %ver%
+Release:        %dist%
 Summary:        A daemon that responds to brightness keys by changing the backlight level
 
 License:        AGPLv3
 URL:            https://github.com/jmesmon/illum
-%global commit 35f56ca1af82480029ba2adaba44959939b5d162
-%global ccan_commit 3ed55657aa0208046cdb5c57cc9dbb2e6300a97b
+%global commit %commit%
+%global ccan_commit %ccan_commit%
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global owner jmesmon
 Source0:        https://github.com/%{owner}/%{name}/archive/%{commit}/%{name}-%{commit}.tar.gz

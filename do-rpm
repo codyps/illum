@@ -10,11 +10,18 @@ else
 fi
 
 cd "$(dirname $0)"
-pv=$(git describe "$tree_ish")
+pv=$(git describe "$tree_ish" | sed -e s,-,+,g)
 ph=$(git rev-parse "$tree_ish")
+ccan_ph=$(cd ccan ; git rev-parse HEAD)
 dist=$(date +%s)
 
-# TODO: generate tarballs...
+rm -rf RPM_SOURCES
+mkdir RPM_SOURCES
+git archive --prefix="$pn"-"$ph"/ -o RPM_SOURCES/"$pn"-"$ph".tar "$tree_ish"
+gzip -9 RPM_SOURCES/"$pn"-"$ph".tar
+( cd ccan ; git archive --prefix=ccan-"$ccan_ph"/ -o ../RPM_SOURCES/ccan-"$ccan_ph".tar HEAD )
+gzip -9 RPM_SOURCES/ccan-"$ccan_ph".tar
 
-# Issue: these defines can't override the ones in the file
-rpmbuild -Dcommit="$ph" -Dver="$pv" -Ddist="$dist" -ba "$pn".spec
+sed -e s,%ver%,$pv,g -e s,%dist%,$dist,g -e s,%commit%,$ph,g -e s,%ccan_commit%,$ccan_ph,g < $pn.spec.in > RPM_SOURCES/$pn.spec
+
+rpmbuild -D_topdir" $(pwd)" -D_sourcedir" $(pwd)"/RPM_SOURCES -D_specdir" $(pwd)"/RPM_SOURCES -ba RPM_SOURCES/"$pn".spec
