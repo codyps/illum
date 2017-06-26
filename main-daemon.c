@@ -233,6 +233,8 @@ int attr_write_int(int at_fd, const char *path, intmax_t v)
 	int l = snprintf(buf, sizeof(buf), "%jd", v);
 
 	ssize_t r = write(mfd, buf, l);
+	close(mfd);
+
 	if (r == -1)
 		return -3;
 
@@ -530,9 +532,11 @@ int main(int argc, char **argv)
 				if (errno) {
 					fprintf(stderr, "failed to read an entry from '%s': %s\n", p,
 							strerror(errno));
+					closedir(d);
 					return 2;
 				} else {
 					fprintf(stderr, "no backlight entries found in '%s'\n", p);
+					closedir(d);
 					return 2;
 				}
 			}
@@ -556,6 +560,7 @@ int main(int argc, char **argv)
 		b_path[strlen(p)] = '/';
 		memcpy(b_path + strlen(p) + 1, res->d_name, strlen(res->d_name));
 		b_path[plen - 1] = '\0';
+		closedir(d);
 	}
 
 	struct sys_backlight sb;
@@ -600,6 +605,8 @@ int main(int argc, char **argv)
 
 		ev_sources++;
 	}
+
+	closedir(idir);
 
 	if (ev_sources == 0) {
 		fprintf(stderr, "could not find any input devices for the keys we need\n");
