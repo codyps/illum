@@ -1,4 +1,4 @@
-## if_compiles: cccafba, see https://github.com/jmesmon/cninja.git
+## if_compiles: 2f65560, see https://github.com/jmesmon/cninja.git
 #! /bin/sh
 set -euf
 
