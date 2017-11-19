@@ -1,4 +1,4 @@
-## config_h_gen: 2f65560, see https://github.com/jmesmon/cninja.git
+## config_h_gen: 988f773, see https://github.com/jmesmon/cninja.git
 #! /bin/sh
 set -euf
 
