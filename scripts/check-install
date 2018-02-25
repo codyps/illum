@@ -1,0 +1,10 @@
+#! /bin/sh
+set -euf
+if [ -e "${CI:-}" ]; then
+	if ! [ -e "${DO_INSTALL:-}" ]; then
+		exit 0
+	fi
+fi
+
+DESTDIR=$PWD/inst1 ./do-install
+DESTDIR=$PWD/inst2 USE_APPARMOR=true USE_OPENRC=true ./do-install

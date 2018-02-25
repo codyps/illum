@@ -45,7 +45,7 @@ matrix:
            - libevdev-dev
            - libev-dev
      env:
-       - MATRIX_EVAL="CC=gcc-7"
+       - MATRIX_EVAL="CC=gcc-7 DO_INSTALL=1"
    - os: linux
      addons:
        apt:
@@ -92,7 +92,9 @@ matrix:
 before_install:
   - eval "${MATRIX_EVAL}"
   - export "CC=ccache $CC"
-script: "./build"
+script:
+  - "./build"
+  - "./scripts/check-install"
 
 branches:
   only:

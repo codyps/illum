@@ -2,6 +2,7 @@
 
 : ${USE_SYSTEMD=true}
 : ${USE_OPENRC=false}
+: ${USE_APPARMOR=false}
 : ${PREFIX:=/usr}
 : ${SYSCONFDIR:=/etc}
 : ${RUNSTATEDIR:=/var/run}
@@ -31,4 +32,11 @@ if $USE_OPENRC; then
 
 	mkdir -p "$DESTDIR$LIBEXEC/illum"
 	install with-syslog "$DESTDIR$LIBEXEC/illum"
+fi
+
+if $USE_APPARMOR; then
+	bindir_dot="$(printf ${PREFIX} | sed 's;/;.;').bin"
+	install -d "$DESTDIR$SYSCONFDIR/apparmor.d"
+	sed -e 's;@bindir@;'$PREFIX'/bin;' \
+		"illum.apparmor" > "$DESTDIR$SYSCONFDIR/apparmor.d/${bindir_dot}.illum-d"
 fi
