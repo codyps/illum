@@ -53,20 +53,6 @@ matrix:
        apt:
          sources:
            - ubuntu-toolchain-r-test
-           - llvm-toolchain-trusty-3.6
-         packages:
-           - clang-3.6
-           - ccache
-           - ninja-build
-           - libevdev-dev
-           - libev-dev
-     env:
-       - matrix_eval="CC=clang-3.6"
-   - os: linux
-     addons:
-       apt:
-         sources:
-           - ubuntu-toolchain-r-test
            - llvm-toolchain-trusty-4.0
          packages:
            - clang-4.0
@@ -95,15 +81,15 @@ matrix:
        apt:
          sources:
            - ubuntu-toolchain-r-test
-           - llvm-toolchain-trusty-6.0
+           - llvm-toolchain-trusty
          packages:
-           - clang-6.0
+           - clang
            - ccache
            - ninja-build
            - libevdev-dev
            - libev-dev
      env:
-       - matrix_eval="CC=clang-6.0"
+       - matrix_eval="CC=clang"
 
 before_install:
   - eval "${MATRIX_EVAL}"
