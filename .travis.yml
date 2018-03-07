@@ -1,18 +1,88 @@
 dist: trusty
 sudo: false
 cache:
-        ccache: true
+  ccache: true
 language: c
 addons:
-        apt:
-                packages:
-                        - ccache
-                        - ninja-build
-                        - libevdev-dev
-                        - libev-dev
-compiler:
-        - clang
-        - gcc
+  apt:
+    packages:
+      - ccache
+      - ninja-build
+      - libevdev-dev
+      - libev-dev
+
+matrix:
+ include:
+   - os: linux
+     addons:
+       apt:
+         sources:
+           - ubuntu-toolchain-r-test
+         packages:
+           - gcc-5
+     env:
+       - matrix_eval="CC=gcc-5"
+   - os: linux
+     addons:
+       apt:
+         sources:
+           - ubuntu-toolchain-r-test
+         packages:
+           - gcc-6
+     env:
+       - matrix_eval="CC=gcc-6"
+   - os: linux
+     addons:
+       apt:
+         sources:
+           - ubuntu-toolchain-r-test
+         packages:
+           - gcc-7
+     env:
+       - matrix_eval="CC=gcc-7"
+   - os: linux
+     addons:
+       apt:
+         sources:
+           - ubuntu-toolchain-r-test
+           - llvm-toolchain-trusty-3.6
+         packages:
+           - clang-3.6
+     env:
+       - matrix_eval="CC=clang-3.6"
+   - os: linux
+     addons:
+       apt:
+         sources:
+           - ubuntu-toolchain-r-test
+           - llvm-toolchain-trusty-4.0
+         packages:
+           - clang-4.0
+     env:
+       - matrix_eval="CC=clang-4.0"
+   - os: linux
+     addons:
+       apt:
+         sources:
+           - ubuntu-toolchain-r-test
+           - llvm-toolchain-trusty-5.0
+         packages:
+           - clang-5.0
+     env:
+       - matrix_eval="CC=clang-5.0"
+   - os: linux
+     addons:
+       apt:
+         sources:
+           - ubuntu-toolchain-r-test
+           - llvm-toolchain-trusty-6.0
+         packages:
+           - clang-6.0
+     env:
+       - matrix_eval="CC=clang-6.0"
+
+before_install:
+  - eval "${MATRIX_EVAL}"
 script: "./build"
 
 branches:
