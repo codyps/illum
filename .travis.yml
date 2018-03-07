@@ -6,10 +6,6 @@ language: c
 addons:
   apt:
     packages:
-      - ccache
-      - ninja-build
-      - libevdev-dev
-      - libev-dev
 
 matrix:
  include:
@@ -20,6 +16,10 @@ matrix:
            - ubuntu-toolchain-r-test
          packages:
            - gcc-5
+           - ccache
+           - ninja-build
+           - libevdev-dev
+           - libev-dev
      env:
        - matrix_eval="CC=gcc-5"
    - os: linux
@@ -29,6 +29,10 @@ matrix:
            - ubuntu-toolchain-r-test
          packages:
            - gcc-6
+           - ccache
+           - ninja-build
+           - libevdev-dev
+           - libev-dev
      env:
        - matrix_eval="CC=gcc-6"
    - os: linux
@@ -38,6 +42,10 @@ matrix:
            - ubuntu-toolchain-r-test
          packages:
            - gcc-7
+           - ccache
+           - ninja-build
+           - libevdev-dev
+           - libev-dev
      env:
        - matrix_eval="CC=gcc-7"
    - os: linux
@@ -48,6 +56,10 @@ matrix:
            - llvm-toolchain-trusty-3.6
          packages:
            - clang-3.6
+           - ccache
+           - ninja-build
+           - libevdev-dev
+           - libev-dev
      env:
        - matrix_eval="CC=clang-3.6"
    - os: linux
@@ -58,6 +70,10 @@ matrix:
            - llvm-toolchain-trusty-4.0
          packages:
            - clang-4.0
+           - ccache
+           - ninja-build
+           - libevdev-dev
+           - libev-dev
      env:
        - matrix_eval="CC=clang-4.0"
    - os: linux
@@ -68,6 +84,10 @@ matrix:
            - llvm-toolchain-trusty-5.0
          packages:
            - clang-5.0
+           - ccache
+           - ninja-build
+           - libevdev-dev
+           - libev-dev
      env:
        - matrix_eval="CC=clang-5.0"
    - os: linux
@@ -78,6 +98,10 @@ matrix:
            - llvm-toolchain-trusty-6.0
          packages:
            - clang-6.0
+           - ccache
+           - ninja-build
+           - libevdev-dev
+           - libev-dev
      env:
        - matrix_eval="CC=clang-6.0"
 
