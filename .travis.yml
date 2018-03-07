@@ -2,10 +2,9 @@ dist: trusty
 sudo: false
 cache:
   ccache: true
-addons:
-  apt:
-    packages:
 
+language: none
+ 
 matrix:
  include:
    - os: linux
