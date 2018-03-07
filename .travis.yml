@@ -1,0 +1,17 @@
+dist: trusty
+sudo: false
+cache:
+        ccache: true
+language: c
+addons:
+        apt:
+                packages:
+                        - ccache
+                        - ninja-build
+                        - libevdev-dev
+                        - libev-dev
+compiler:
+        - clang
+        - gcc
+script: "./build"
+
