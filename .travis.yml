@@ -15,3 +15,8 @@ compiler:
         - gcc
 script: "./build"
 
+branches:
+  only:
+    - staging
+    - trying
+    - master
