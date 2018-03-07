@@ -90,3 +90,4 @@ branches:
     - staging
     - trying
     - master
+    - travis
