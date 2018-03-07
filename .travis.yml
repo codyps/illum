@@ -91,7 +91,7 @@ matrix:
 
 before_install:
   - eval "${MATRIX_EVAL}"
-  - export "CC=ccache $CC"
+  - eval export "CC=\"ccache $CC\""
 script: "./build"
 
 branches:
