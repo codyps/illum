@@ -19,7 +19,7 @@ matrix:
            - libevdev-dev
            - libev-dev
      env:
-       - matrix_eval="CC=gcc-5"
+       - MATRIX_EVAL="CC=gcc-5"
    - os: linux
      addons:
        apt:
@@ -32,7 +32,7 @@ matrix:
            - libevdev-dev
            - libev-dev
      env:
-       - matrix_eval="CC=gcc-6"
+       - MATRIX_EVAL="CC=gcc-6"
    - os: linux
      addons:
        apt:
@@ -45,7 +45,7 @@ matrix:
            - libevdev-dev
            - libev-dev
      env:
-       - matrix_eval="CC=gcc-7"
+       - MATRIX_EVAL="CC=gcc-7"
    - os: linux
      addons:
        apt:
@@ -59,7 +59,7 @@ matrix:
            - libevdev-dev
            - libev-dev
      env:
-       - matrix_eval="CC=clang-4.0"
+       - MATRIX_EVAL="CC=clang-4.0"
    - os: linux
      addons:
        apt:
@@ -73,7 +73,7 @@ matrix:
            - libevdev-dev
            - libev-dev
      env:
-       - matrix_eval="CC=clang-5.0"
+       - MATRIX_EVAL="CC=clang-5.0"
    - os: linux
      addons:
        apt:
@@ -87,11 +87,11 @@ matrix:
            - libevdev-dev
            - libev-dev
      env:
-       - matrix_eval="CC=clang"
+       - MATRIX_EVAL="CC=clang"
 
 before_install:
   - eval "${MATRIX_EVAL}"
-  - eval export "CC=\"ccache $CC\""
+  - export "CC=ccache $CC"
 script: "./build"
 
 branches:
