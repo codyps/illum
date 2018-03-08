@@ -1,17 +1,102 @@
 dist: trusty
 sudo: false
 cache:
-        ccache: true
-language: c
-addons:
-        apt:
-                packages:
-                        - ccache
-                        - ninja-build
-                        - libevdev-dev
-                        - libev-dev
-compiler:
-        - clang
-        - gcc
+  ccache: true
+
+language: none
+ 
+matrix:
+ include:
+   - os: linux
+     addons:
+       apt:
+         sources:
+           - ubuntu-toolchain-r-test
+         packages:
+           - gcc-5
+           - ccache
+           - ninja-build
+           - libevdev-dev
+           - libev-dev
+     env:
+       - MATRIX_EVAL="CC=gcc-5"
+   - os: linux
+     addons:
+       apt:
+         sources:
+           - ubuntu-toolchain-r-test
+         packages:
+           - gcc-6
+           - ccache
+           - ninja-build
+           - libevdev-dev
+           - libev-dev
+     env:
+       - MATRIX_EVAL="CC=gcc-6"
+   - os: linux
+     addons:
+       apt:
+         sources:
+           - ubuntu-toolchain-r-test
+         packages:
+           - gcc-7
+           - ccache
+           - ninja-build
+           - libevdev-dev
+           - libev-dev
+     env:
+       - MATRIX_EVAL="CC=gcc-7"
+   - os: linux
+     addons:
+       apt:
+         sources:
+           - ubuntu-toolchain-r-test
+           - llvm-toolchain-trusty-4.0
+         packages:
+           - clang-4.0
+           - ccache
+           - ninja-build
+           - libevdev-dev
+           - libev-dev
+     env:
+       - MATRIX_EVAL="CC=clang-4.0"
+   - os: linux
+     addons:
+       apt:
+         sources:
+           - ubuntu-toolchain-r-test
+           - llvm-toolchain-trusty-5.0
+         packages:
+           - clang-5.0
+           - ccache
+           - ninja-build
+           - libevdev-dev
+           - libev-dev
+     env:
+       - MATRIX_EVAL="CC=clang-5.0"
+   - os: linux
+     addons:
+       apt:
+         sources:
+           - ubuntu-toolchain-r-test
+           - llvm-toolchain-trusty
+         packages:
+           - clang
+           - ccache
+           - ninja-build
+           - libevdev-dev
+           - libev-dev
+     env:
+       - MATRIX_EVAL="CC=clang"
+
+before_install:
+  - eval "${MATRIX_EVAL}"
+  - export "CC=ccache $CC"
 script: "./build"
 
+branches:
+  only:
+    - staging
+    - trying
+    - master
+    - travis
