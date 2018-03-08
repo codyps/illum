@@ -1,0 +1,17 @@
+# Last Modified: Tue Feb 20 04:32:38 2018
+#include <tunables/global>
+
+@bindir@/illum-d {
+  #include <abstractions/base>
+
+  @bindir@/illum-d mr,
+  owner /dev/ r,
+  owner /dev/input/ r,
+  owner /dev/input/* r,
+  owner /dev/input/*/ r,
+  owner /sys/class/backlight/ r,
+  owner /sys/devices/**/ r,
+  owner /sys/devices/**/brightness rw,
+  owner /sys/devices/**/max_brightness r,
+
+}
