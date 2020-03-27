@@ -1,7 +1,7 @@
 cache:
   ccache: true
 
-language: rust
+language: c
 
 jobs:
  include:
