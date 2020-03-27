@@ -1,4 +1,3 @@
-dist: trusty
 cache:
   ccache: true
 
@@ -7,32 +6,37 @@ language: rust
 jobs:
  include:
    - os: linux
+     dist: bionic
      addons:
        apt:
          sources:
            - ubuntu-toolchain-r-test
          packages:
-           - gcc-5
+           - gcc-9
            - ccache
            - ninja-build
            - libevdev-dev
+           - libudev-dev
            - libev-dev
      env:
-       - MATRIX_EVAL="CC=gcc-5"
+       - MATRIX_EVAL="CC=gcc-9"
    - os: linux
+     dist: bionic
      addons:
        apt:
          sources:
            - ubuntu-toolchain-r-test
          packages:
-           - gcc-6
+           - gcc-8
            - ccache
            - ninja-build
            - libevdev-dev
+           - libudev-dev
            - libev-dev
      env:
-       - MATRIX_EVAL="CC=gcc-6"
+       - MATRIX_EVAL="CC=gcc-8"
    - os: linux
+     dist: bionic
      addons:
        apt:
          sources:
@@ -42,48 +46,52 @@ jobs:
            - ccache
            - ninja-build
            - libevdev-dev
+           - libudev-dev
            - libev-dev
      env:
        - MATRIX_EVAL="CC=gcc-7 DO_INSTALL=1"
    - os: linux
+     dist: bionic
      addons:
        apt:
          sources:
            - ubuntu-toolchain-r-test
-           - llvm-toolchain-trusty-4.0
+           - llvm-toolchain-trusty-11.0
          packages:
-           - clang-4.0
+           - clang-11
            - ccache
            - ninja-build
            - libevdev-dev
+           - libudev-dev
            - libev-dev
      env:
-       - MATRIX_EVAL="CC=clang-4.0"
+       - MATRIX_EVAL="CC=clang-11"
    - os: linux
+     dist: bionic
      addons:
        apt:
          sources:
            - ubuntu-toolchain-r-test
-           - llvm-toolchain-trusty-5.0
+           - llvm-toolchain-bionic-10.0
          packages:
-           - clang-5.0
+           - clang-10
            - ccache
            - ninja-build
            - libevdev-dev
+           - libudev-dev
            - libev-dev
      env:
-       - MATRIX_EVAL="CC=clang-5.0"
+       - MATRIX_EVAL="CC=clang-10"
    - os: linux
+     dist: bionic
      addons:
        apt:
-         sources:
-           - ubuntu-toolchain-r-test
-           - llvm-toolchain-trusty
          packages:
            - clang
            - ccache
            - ninja-build
            - libevdev-dev
+           - libudev-dev
            - libev-dev
      env:
        - MATRIX_EVAL="CC=clang"
