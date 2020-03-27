@@ -56,7 +56,7 @@ jobs:
        apt:
          sources:
            - ubuntu-toolchain-r-test
-           - llvm-toolchain-trusty-11.0
+           - llvm-toolchain-bionic-11
          packages:
            - clang-11
            - ccache
@@ -72,7 +72,7 @@ jobs:
        apt:
          sources:
            - ubuntu-toolchain-r-test
-           - llvm-toolchain-bionic-10.0
+           - llvm-toolchain-bionic-10
          packages:
            - clang-10
            - ccache
