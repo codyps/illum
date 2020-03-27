@@ -612,7 +612,7 @@ udev_cb(EV_P_ ev_io *w, int revents)
 
 				const char *dev_path = udev_device_get_devnode(dev);
 				if (!dev_path) {
-					pr_warn("device node for %s does not exist\n", sys_path);
+					pr_debug("device node for %s does not exist\n", sys_path);
 					goto next_dev;
 				}
 				int r = input_dev_new(&id, dev_path, sys_path EV_A__);
