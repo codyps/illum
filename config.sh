@@ -1,4 +1,4 @@
-## config.sh: 988f773, see https://github.com/jmesmon/cninja.git
+## config.sh: 3211cef, see https://github.com/jmesmon/cninja.git
 # ex: sts=8 sw=8 ts=8 noet
 set -eu
 

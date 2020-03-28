@@ -25,12 +25,56 @@
 /* libevdev */
 #include <libevdev/libevdev.h>
 
+/* libudev */
+#include <libudev.h>
+
 /* ev */
 #include "ev-ext.h"
 
 /* ccan */
 #include <ccan/pr_log/pr_log.h>
+#include <ccan/tlist2/tlist2.h>
 #include <ccan/str/str.h>
+
+
+/*
+ * sys_backlight assumes max_brightness is fixed
+ */
+struct sys_backlight {
+	struct list_node list;
+
+	char *path;
+	int dir_fd;
+	uintmax_t max_brightness;
+	int brightness_fd;
+	unsigned linearity;
+};
+
+struct input_dev {
+	char *sys_path;
+
+	struct illum *parent;
+	struct list_node list;
+	ev_io w;
+	struct libevdev *dev;
+};
+
+struct illum_conf {
+	// adjust the rate of brightness adjustments as a factor of the
+	// current brightness level.
+	unsigned linearity;
+};
+
+struct illum {
+	TLIST2(struct input_dev, list) inputs;
+	TLIST2(struct sys_backlight, list) backlights;
+
+	struct ev_io w_udev;
+	struct illum_conf conf;
+
+	struct udev *udev;
+	struct udev_monitor *udev_monitor;
+};
 
 
 /* interfaces:
@@ -187,17 +231,6 @@ void usage_(const char *pn)
 
 #define usage() usage_(argc?argv[0]:"illum-d")
 
-/*
- * sys_backlight assumes max_brightness is fixed
- */
-struct sys_backlight {
-	const char *path;
-	int dir_fd;
-	uintmax_t max_brightness;
-	int brightness_fd;
-	unsigned linearity;
-};
-
 static
 intmax_t attr_read_int(int at_fd, const char *path)
 {
@@ -350,40 +383,68 @@ int sys_backlight_brightness_mod(struct sys_backlight *sb, struct crat mod)
 }
 
 static
-int sys_backlight_init(struct sys_backlight *sb, const char *path, unsigned linearity)
+int sys_backlight_new(struct sys_backlight **sb_, const char *path, unsigned linearity)
 {
-	int ret = 0;
-	sb->path = path;
-	sb->dir_fd = open(sb->path, O_RDONLY | O_DIRECTORY);
-	if (sb->dir_fd == -1)
-		return -1;
+	struct sys_backlight *sb = malloc(sizeof(*sb));
+	if (!sb) {
+		return -ENOMEM;
+	}
 
-	int r = sys_backlight_init_max_brightness(sb);
+	int r = -ENOMEM;
+	sb->path = strdup(path);
+	if (!sb->path)
+		goto e_alloc;
+
+	sb->dir_fd = open(sb->path, O_RDONLY | O_DIRECTORY);
+	if (sb->dir_fd == -1) {
+		r = -1;
+		goto e_alloc_p;
+	}
+
+	r = sys_backlight_init_max_brightness(sb);
 	if (r < 0) {
-		ret = r;
-		goto e_out;
+		goto e_close;
 	}
 
 	sb->brightness_fd = openat(sb->dir_fd, "brightness", O_RDONLY);
 	if (!sb->brightness_fd) {
-		ret = -5;
-		goto e_out;
+		r = -5;
+		goto e_close;
 	}
+	
+	pr_info("using %s as a backlight\n", path);
 
 	sb->linearity = linearity;
-
+	*sb_ = sb;
 	return 0;
 
-e_out:
+e_close:
 	close(sb->dir_fd);
-	return ret;
+e_alloc_p:
+	free(sb->path);
+e_alloc:
+	free(sb);
+	return r;
 }
 
-struct input_dev {
-	ev_io w;
-	struct libevdev *dev;
+static
+void sys_backlight__delete(struct sys_backlight *sb)
+{
+	list_del(&sb->list);
+	close(sb->dir_fd);
+	free(sb->path);
+	free(sb);
+}
+
+static void
+illum__brightness_mod(struct illum *illum, struct crat crat)
+{
 	struct sys_backlight *bl;
-};
+	tlist2_for_each(&illum->backlights, bl) {
+		sys_backlight_brightness_mod(bl, crat);
+	}
+
+}
 
 static void
 evdev_cb(EV_P_ ev_io *w, int revents)
@@ -391,7 +452,7 @@ evdev_cb(EV_P_ ev_io *w, int revents)
 	(void)revents;
 	(void)EV_A;
 
-	struct input_dev *id = (struct input_dev *)w;
+	struct input_dev *id = container_of(w, struct input_dev, w);
 	for (;;) {
 		struct input_event ev;
 		int r = libevdev_next_event(id->dev, LIBEVDEV_READ_FLAG_NORMAL, &ev);
@@ -418,10 +479,10 @@ evdev_cb(EV_P_ ev_io *w, int revents)
 			/* TODO: allow mapping these to other key combinations */
 			switch(ev.code) {
 			case KEY_BRIGHTNESSUP:
-				sys_backlight_brightness_mod(id->bl, CRAT(5, 100));
+				illum__brightness_mod(id->parent, CRAT(5, 100));
 				break;
 			case KEY_BRIGHTNESSDOWN:
-				sys_backlight_brightness_mod(id->bl, CRAT(-5, 100));
+				illum__brightness_mod(id->parent, CRAT(-5, 100));
 				break;
 			}
 
@@ -435,19 +496,28 @@ evdev_cb(EV_P_ ev_io *w, int revents)
 }
 
 static
-int input_dev_init(struct input_dev *id, int at_fd, const char *path, struct sys_backlight *sb EV_P__)
+int input_dev_new(struct input_dev **id_, const char *path, const char *sys_path EV_P__)
 {
-	int ifd = openat(at_fd, path, O_RDONLY|O_NONBLOCK);
+	int ifd = open(path, O_RDONLY|O_NONBLOCK);
 	if (ifd < 0) {
 		fprintf(stderr, "could not open %s\n", path);
 		return -1;
 	}
 
-	int r = libevdev_new_from_fd(ifd, &id->dev);
+	int r = -ENOMEM;
+	struct input_dev *id = malloc(sizeof(*id));
+	if (!id)
+		goto e_close;
+
+	id->sys_path = strdup(sys_path);
+	if (!id->sys_path)
+		goto e_malloc;
+
+	r = libevdev_new_from_fd(ifd, &id->dev);
 	if (r) {
-		pr_devel("could not init %s as libevdev device (%d)\n", path, r);
-		close(ifd);
-		return -2;
+		pr_debug("could not init %s as libevdev device (%d)\n", path, r);
+		r = 0;
+		goto e_malloc_path;
 	}
 
 	/* Ignore devices we don't care about.
@@ -455,16 +525,213 @@ int input_dev_init(struct input_dev *id, int at_fd, const char *path, struct sys
 	 */
 	if (!libevdev_has_event_code(id->dev, EV_KEY, KEY_BRIGHTNESSDOWN)
 		&& !libevdev_has_event_code(id->dev, EV_KEY, KEY_BRIGHTNESSUP)) {
-		close(ifd);
-		return -3;
+		pr_debug("input %s skipped due to lack of keys\n", path);
+		r = 0;
+		goto e_libevdev;
 	}
-
-	id->bl = sb;
 
 	ev_io_init(&id->w, evdev_cb, ifd, EV_READ);
 	ev_io_start(EV_A_ &id->w);
 
-	pr_info("using %s as an input dev\n", path);
+	pr_info("using %s as an input dev\n", sys_path);
+
+	*id_ = id;
+
+	return 1;
+e_libevdev:
+	libevdev_free(id->dev);
+e_malloc_path:
+	free(id->sys_path);
+e_malloc:
+	free(id);
+e_close:
+	close(ifd);
+	return r;
+}
+
+static void
+input_dev__delete(struct input_dev *id EV_P__)
+{
+	int ifd = id->w.fd;
+	list_del(&id->list);
+	ev_io_stop(EV_A_ &id->w);
+	libevdev_free(id->dev);
+	free(id->sys_path);
+	free(id);
+	close(ifd);
+}
+
+static void
+udev_cb(EV_P_ ev_io *w, int revents)
+{
+	(void)revents;
+	(void)EV_A;
+
+	struct illum *illum = container_of(w, struct illum, w_udev);
+
+	for (;;) {
+		struct udev_device *dev = udev_monitor_receive_device(illum->udev_monitor);
+		if (!dev)
+			break;
+
+		const char *action = udev_device_get_action(dev);
+		const char *subsystem = udev_device_get_subsystem(dev);
+		const char *sys_path = udev_device_get_syspath(dev);
+
+		pr_debug("op: %s : %s\n", action, subsystem);
+
+		if (streq(action, "add")) {
+			// check if this device already exists, if so
+			// ignore
+			//
+			// insert device into list
+			if (streq(subsystem, "backlight")) {
+				struct sys_backlight *bl;
+				tlist2_for_each(&illum->backlights, bl) {
+					if (streq(sys_path, bl->path)) {
+						pr_info("backlight %s was added but already is tracked, ignoring\n", sys_path);
+						goto next_dev;
+					}
+				}
+
+				int r = sys_backlight_new(&bl, sys_path, illum->conf.linearity);
+				if (r < 0) {
+					pr_warn("failed to add new backlight %s: %d\n", sys_path, r);
+					goto next_dev;
+				}
+
+				tlist2_add(&illum->backlights, bl);
+			} else if (streq(subsystem, "input")) {
+				struct input_dev *id;
+				tlist2_for_each(&illum->inputs, id) {
+					if (streq(sys_path, id->sys_path)) {
+						pr_info("input %s was added but already is tracked, ignoring\n", sys_path);
+						goto next_dev;
+					}
+				}
+
+				const char *dev_path = udev_device_get_devnode(dev);
+				if (!dev_path) {
+					pr_debug("device node for %s does not exist\n", sys_path);
+					goto next_dev;
+				}
+				int r = input_dev_new(&id, dev_path, sys_path EV_A__);
+				if (r < 0) {
+					pr_warn("failed to add new input %s: %d\n", sys_path, r); 
+					goto next_dev;
+				}
+
+				if (r == 0)
+					goto next_dev;
+
+				id->parent = illum;
+				tlist2_add(&illum->inputs, id);
+			} else {
+				pr_warn("unrecognized subsystem: %s\n", subsystem);
+			}
+		} else if (streq(action, "remove")) {
+			// find device, remove
+			if (streq(subsystem, "backlight")) {
+				struct sys_backlight *bl;
+				tlist2_for_each(&illum->backlights, bl) {
+					if (streq(sys_path, bl->path)) {
+						sys_backlight__delete(bl);
+						goto next_dev;
+					}
+				}
+			} else if (streq(subsystem, "input")) {
+				struct input_dev *id;
+				tlist2_for_each(&illum->inputs, id) {
+					if (streq(sys_path, id->sys_path)) {
+						input_dev__delete(id EV_A__);
+						goto next_dev;
+					}
+				}
+			} else {
+
+			}
+
+		} else if (streq(action, "change")) {
+			// we trigger these on the backlight
+		} else {
+			pr_info("udev: unhandled action: %s on device %s\n", action, sys_path);
+		}
+
+next_dev:
+		udev_device_unref(dev);
+	}
+}
+
+static
+int backlights_scan(struct illum *illum, struct udev_enumerate *bl_enum)
+{
+	int r = udev_enumerate_scan_devices(bl_enum);
+	if (r < 0) {
+		pr_warn("backlight enumerate failed: %d\n", r);
+		return r;
+	}
+
+	struct udev_list_entry *list, *le;
+
+	list = udev_enumerate_get_list_entry(bl_enum);
+
+	udev_list_entry_foreach(le, list) {
+		const char *path = udev_list_entry_get_name(le);
+		struct sys_backlight *sb;
+		int e = sys_backlight_new(&sb, path, illum->conf.linearity);
+		if (e < 0) {
+			fprintf(stderr, "failed to initialize sys backlight at '%s' (%d)\n", path, e);
+			continue;
+		}
+
+		pr_debug("using '%s' as a backlight, max_brightness = %jd\n",
+				path, sb->max_brightness);
+
+		tlist2_add(&illum->backlights, sb);
+	}
+
+	return 0;
+}
+
+static
+int inputs_scan(struct illum *illum, struct udev_enumerate *input_enum EV_P__)
+{
+	int r = udev_enumerate_scan_devices(input_enum);
+	if (r < 0) {
+		pr_warn("input enumerate failed: %d\n", r);
+		return r;
+	}
+
+	struct udev_list_entry *list, *le;
+	list = udev_enumerate_get_list_entry(input_enum);
+
+	udev_list_entry_foreach(le, list) {
+		const char *sys_path = udev_list_entry_get_name(le);
+		struct udev_device *dev = udev_device_new_from_syspath(illum->udev, sys_path);
+
+		pr_debug("input %s devpath=%s devtype=%s\n", sys_path, udev_device_get_devpath(dev), udev_device_get_devtype(dev));
+
+		const char *path = udev_device_get_devnode(dev);
+		if (!path) {
+			pr_debug("device node for %s does not exist\n", sys_path);
+			goto next;
+		}
+
+		struct input_dev *id;
+		r = input_dev_new(&id, path, sys_path EV_A__);
+		if (r < 0) {
+			pr_warn("input_dev_new(%s) failed: %d\n", sys_path, r);
+			goto next;
+		}
+
+		if (r != 1)
+			goto next;
+		
+		id->parent = illum;
+		tlist2_add(&illum->inputs, id);
+next:
+		udev_device_unref(dev);
+	}
 
 	return 0;
 }
@@ -472,17 +739,19 @@ int input_dev_init(struct input_dev *id, int at_fd, const char *path, struct sys
 int main(int argc, char **argv)
 {
 	int c, e = 0;
-	unsigned l = 2;
-	char *b_path = NULL;
+	struct illum illum = {
+		.conf = {
+			.linearity = 2,
+		}
+	};
+	tlist2_init(&illum.inputs);
+	tlist2_init(&illum.backlights);
 
 	while ((c = getopt(argc, argv, opts)) != -1) {
 		switch(c) {
 		case 'h':
 			usage();
 			return 0;
-		case 'b':
-			b_path = optarg;
-			break;
 		case 'l': {
 			long x = strtol(optarg, NULL, 0);
 			if (x < 0) {
@@ -491,7 +760,7 @@ int main(int argc, char **argv)
 				break;
 			}
 
-			l = x;
+			illum.conf.linearity = x;
 			break;
 		}
 		case 'V':
@@ -509,111 +778,77 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	/*
-	 * Backlight
-	 */
-	if (!b_path) {
-		const char *p = "/sys/class/backlight";
-		pr_debug("no backlight path given, scanning %s\n", p);
-		DIR *d = opendir(p);
-		if (!d) {
-			fprintf(stderr, "could not open dir '%s'\n", p);
-			return 2;
-		}
-		long name_max = pathconf(p, _PC_NAME_MAX);
-		if (name_max == -1)
-			name_max = 255;
-		struct dirent *res;
-
-		for (;;) {
-			errno = 0;
-			res = readdir(d);
-			if (!res) {
-				if (errno) {
-					fprintf(stderr, "failed to read an entry from '%s': %s\n", p,
-							strerror(errno));
-					closedir(d);
-					return 2;
-				} else {
-					fprintf(stderr, "no backlight entries found in '%s'\n", p);
-					closedir(d);
-					return 2;
-				}
-			}
-
-			if (*res->d_name == '.')
-				continue;
-
-			break;
-		}
-
-		pr_debug("found backlight %s/%s\n", p, res->d_name);
-
-		size_t plen = strlen(p) + 1 + strlen(res->d_name) + 1;
-		b_path = malloc(plen);
-		if (!b_path) {
-			fprintf(stderr, "path allocation failed: %zu bytes, '%s' + '%s'\n", plen, p, res->d_name);
-			return 2;
-		}
-
-		memcpy(b_path, p, strlen(p));
-		b_path[strlen(p)] = '/';
-		memcpy(b_path + strlen(p) + 1, res->d_name, strlen(res->d_name));
-		b_path[plen - 1] = '\0';
-		closedir(d);
+	illum.udev = udev_new();
+	if (!illum.udev) {
+		pr_error("udev_new() failed\n");
+		return 3;
 	}
 
-	struct sys_backlight sb;
-	e = sys_backlight_init(&sb, b_path, l);
-	if (e < 0) {
-		fprintf(stderr, "failed to initialize sys backlight at '%s' (%d)\n", b_path, e);
-		return 2;
+	struct udev_enumerate *bl_enum = udev_enumerate_new(illum.udev);
+	if (!bl_enum) {
+		pr_error("udev_enumerate_new() failed\n");
+		return 4;
 	}
 
-	pr_debug("using '%s' as the backlight, max_brightness = %jd\n",
-			b_path, sb.max_brightness);
 
-	struct ev_loop *loop = EV_DEFAULT;
-
-	/*
-	 * Input dev
-	 */
-	size_t ev_sources = 0;
-	const char *i_path = "/dev/input";
-	DIR *idir = opendir(i_path);
-	if (!idir) {
-		fprintf(stderr, "cannot open %s dir: %s\n",
-				i_path, strerror(errno));
-		return 1;
-	}
-	for (;;) {
-		errno = 0;
-		struct dirent *res = readdir(idir);
-		if (!res) {
-			if (errno) {
-				fprintf(stderr, "readdir_r failure: %s\n",
-						strerror(errno));
-				return 1;
-			} else
-				break;
-		}
-
-		struct input_dev *id = malloc(sizeof(*id));
-		e = input_dev_init(id, dirfd(idir), res->d_name, &sb EV_A__);
-		if (e < 0)
-			continue;
-
-		ev_sources++;
+	int r = udev_enumerate_add_match_subsystem(bl_enum, "backlight");
+	if (r < 0) {
+		pr_error("udev_enumerate_add_match_subsystem failed: %d\n", r);
+		return 5;
 	}
 
-	closedir(idir);
-
-	if (ev_sources == 0) {
-		fprintf(stderr, "could not find any input devices for the keys we need\n");
-		return 1;
+	struct udev_enumerate *input_enum = udev_enumerate_new(illum.udev);
+	if (!input_enum) {
+		pr_error("udev enum new failed\n");
+		return 5;
 	}
 
-	ev_run(loop, 0);
+	r = udev_enumerate_add_match_subsystem(input_enum, "input");
+	if (r < 0) {
+		pr_error("udev_enumerate_add_match_subsystem failed: %d\n", r);
+		return 5;
+	}
+
+	illum.udev_monitor = udev_monitor_new_from_netlink(illum.udev, "udev");
+	if (!illum.udev_monitor) {
+		pr_error("udev_monitor_new_from_netlink() failed\n");
+		return 6;
+	}
+
+	r = udev_monitor_filter_add_match_subsystem_devtype(illum.udev_monitor, "backlight", NULL);
+	if (r < 0) {
+		pr_error("udev_monitor_filter_add_match_subsystem_devtype backlight failed: %d\n", r);
+		return 7;
+	}
+
+	r = udev_monitor_filter_add_match_subsystem_devtype(illum.udev_monitor, "input", NULL);
+	if (r < 0) {
+		pr_error("udev_monitor_filter_add_match_subsystem_devtype input failed: %d\n", r);
+		return 7;
+	}
+
+	r = udev_monitor_enable_receiving(illum.udev_monitor);
+	if (r < 0) {
+		pr_error("udev_monitor_enable_receiving failed: %d\n", r);
+		return 8;
+	}
+
+	r = backlights_scan(&illum, bl_enum);
+	if (r < 0) {
+		pr_error("backlight initial scan failed: %d\n", r);
+		return 9;
+	}
+
+	r = inputs_scan(&illum, input_enum EV_DEFAULT__);
+	if (r < 0) {
+		pr_error("input initial scan failed: %d\n", r);
+		return 9;
+	}
+
+	ev_io_init(&illum.w_udev, udev_cb, udev_monitor_get_fd(illum.udev_monitor), EV_READ);
+	ev_io_start(EV_DEFAULT_ &illum.w_udev);
+
+	ev_run(EV_DEFAULT_ 0);
 
 	return 0;
 }

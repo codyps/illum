@@ -7,9 +7,11 @@
 #if EV_MULTIPLICITY
 # define EV_P__  , EV_P
 # define EV_A__  , EV_A
+# define EV_DEFAULT__ , EV_DEFAULT
 #else
 # define EV_P__
 # define EV_A__
+# define EV_DEFAULT__
 #endif
 
 #endif
