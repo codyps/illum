@@ -24,4 +24,4 @@ gzip -9 RPM_SOURCES/ccan-"$ccan_ph".tar
 
 sed -e s,%ver%,$pv,g -e s,%dist%,$dist,g -e s,%commit%,$ph,g -e s,%ccan_commit%,$ccan_ph,g < $pn.spec.in > RPM_SOURCES/$pn.spec
 
-rpmbuild -D_topdir" $(pwd)" -D_sourcedir" $(pwd)"/RPM_SOURCES -D_specdir" $(pwd)"/RPM_SOURCES -ba RPM_SOURCES/"$pn".spec
+rpmbuild --nodeps -D_topdir" $(pwd)" -D_sourcedir" $(pwd)"/RPM_SOURCES -D_specdir" $(pwd)"/RPM_SOURCES -ba RPM_SOURCES/"$pn".spec
