@@ -26,7 +26,8 @@ rmdir ccan
 mv $(basename %{SOURCE1} .tar.gz) ccan
 
 %build
-./build
+%set_build_flags
+./build -v
 
 %install
 rm -rf $RPM_BUILD_ROOT

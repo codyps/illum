@@ -9,3 +9,8 @@ illum-ctl
 
 # FIXME: remove once config.h is shoved in one of the build subdirs
 config.h
+
+/BUILD/
+/RPMS/
+/SRPMS/
+/RPM_SOURCES/
