@@ -20,7 +20,7 @@ Gentoo:
 
    layman -a jmesmon
    ACCEPT_KEYWORDS="**" emerge illum-git
-   rc-upadte add illum default
+   rc-update add illum default
    /etc/init.d/illum start
 
 === build ===
