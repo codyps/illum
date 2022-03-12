@@ -460,6 +460,10 @@ evdev_cb(EV_P_ ev_io *w, int revents)
 		/* no events */
 		if (r == -EAGAIN)
 			break;
+		else if (r < 0) {
+			pr_notice("error for libevdev device (%s): %d\n", libevdev_get_name(id->dev), -r);
+			break;
+		}
 
 		/* need sync??
 		 * FIXME: determine if we're handling this properly or if we
