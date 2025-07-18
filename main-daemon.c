@@ -447,6 +447,18 @@ illum__brightness_mod(struct illum *illum, struct crat crat)
 }
 
 static void
+input_dev__delete(struct input_dev *id EV_P__)
+{
+	int ifd = id->w.fd;
+	list_del(&id->list);
+	ev_io_stop(EV_A_ &id->w);
+	libevdev_free(id->dev);
+	free(id->sys_path);
+	free(id);
+	close(ifd);
+}
+
+static void
 evdev_cb(EV_P_ ev_io *w, int revents)
 {
 	(void)revents;
@@ -460,6 +472,11 @@ evdev_cb(EV_P_ ev_io *w, int revents)
 		/* no events */
 		if (r == -EAGAIN)
 			break;
+		else if (r == -ENODEV) {
+			pr_info("input device vanished: %s\n", libevdev_get_name(id->dev));
+			input_dev__delete(id EV_A__);
+			break;
+		}
 		else if (r < 0) {
 			pr_notice("error for libevdev device (%s): %d\n", libevdev_get_name(id->dev), -r);
 			break;
@@ -551,18 +568,6 @@ e_malloc:
 e_close:
 	close(ifd);
 	return r;
-}
-
-static void
-input_dev__delete(struct input_dev *id EV_P__)
-{
-	int ifd = id->w.fd;
-	list_del(&id->list);
-	ev_io_stop(EV_A_ &id->w);
-	libevdev_free(id->dev);
-	free(id->sys_path);
-	free(id);
-	close(ifd);
 }
 
 static void
