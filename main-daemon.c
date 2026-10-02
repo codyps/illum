@@ -465,9 +465,10 @@ evdev_cb(EV_P_ ev_io *w, int revents)
 	(void)EV_A;
 
 	struct input_dev *id = container_of(w, struct input_dev, w);
+	unsigned int read_flags = LIBEVDEV_READ_FLAG_NORMAL;
 	for (;;) {
 		struct input_event ev;
-		int r = libevdev_next_event(id->dev, LIBEVDEV_READ_FLAG_NORMAL, &ev);
+		int r = libevdev_next_event(id->dev, read_flags, &ev);
 
 		/* no events */
 		if (r == -EAGAIN)
@@ -482,12 +483,13 @@ evdev_cb(EV_P_ ev_io *w, int revents)
 			break;
 		}
 
-		/* need sync??
-		 * FIXME: determine if we're handling this properly or if we
-		 * even really need to handle it.
-		 */
-		if (r == LIBEVDEV_READ_STATUS_SYNC)
+		/* SYN_DROPPED: resync, fetch missed events with FLAG_SYNC */
+		if (r == LIBEVDEV_READ_STATUS_SYNC) {
+			read_flags = LIBEVDEV_READ_FLAG_SYNC;
 			continue;
+		} else if (r == LIBEVDEV_READ_STATUS_SUCCESS) {
+			read_flags = LIBEVDEV_READ_FLAG_NORMAL;
+		}
 
 		assert(r == LIBEVDEV_READ_STATUS_SUCCESS);
 
